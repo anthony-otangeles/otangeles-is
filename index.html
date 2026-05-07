@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Otangeles Intelligent System - Facility</title>
+  <link rel="icon" href="/assets/otangeles-icon.svg" />
+  <link rel="stylesheet" href="/styles/tokens.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #F7F7F7; color: #1C192E; -webkit-font-smoothing: antialiased; }
+    button { font-family: inherit; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-thumb { background: #D1D5DC; border-radius: 9999px; border: 2px solid transparent; background-clip: padding-box; }
+    ::-webkit-scrollbar-thumb:hover { background: #99A1AF; border: 2px solid transparent; background-clip: padding-box; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    @keyframes ois-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    @keyframes ois-bounce { 0%,80%,100%{opacity:0.4;transform:translateY(0)} 40%{opacity:1;transform:translateY(-4px)} }
+    .ois-grid-2 { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    .ois-row-actions { display: flex; flex-direction: column; gap: 10px; }
+    .ois-profile-grid { display: grid; grid-template-columns: 1fr; gap: 16px; padding: 16px; }
+    .ois-profile-trend { padding: 16px; display: grid; grid-template-columns: 1fr; gap: 16px; align-items: center; border-top: 1px solid #EEEEEE; }
+    .ois-page { padding: 16px 12px 112px; margin: 0 auto; }
+    .ois-modal-2col { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .ois-team-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    @media (min-width: 720px) {
+      .ois-page { padding: 20px 20px 116px; }
+      .ois-modal-2col { grid-template-columns: 1fr 1fr; }
+      .ois-team-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (min-width: 900px) {
+      .ois-page { padding: 24px 28px 120px; }
+    }
+    .desktop-only { display: none !important; }
+    .mobile-only { display: initial !important; }
+    @media (max-width: 1024px) {
+      table.ois-stack thead { display: none; }
+      table.ois-stack, table.ois-stack tbody, table.ois-stack tr, table.ois-stack td { display: block; width: 100%; }
+      table.ois-stack tr { border-top: 1px solid #EEEEEE; padding: 12px 14px; }
+      table.ois-stack td { padding: 4px 0 !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>

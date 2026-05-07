@@ -1,0 +1,19 @@
+{
+  "name": "otangeles-intelligent-system",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "node scripts/generate-vue-entry.mjs",
+    "dev": "npm run generate && vite --host 0.0.0.0",
+    "build": "npm run generate && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "smoke": "node scripts/smoke-vue.mjs"
+  },
+  "dependencies": {
+    "@vitejs/plugin-vue-jsx": "^5.1.1",
+    "vite": "^7.1.12",
+    "vue": "^3.5.22"
+  },
+  "devDependencies": {}
+}
