@@ -1,6 +1,4 @@
 import { createApp, defineComponent, isVNode, nextTick, onUnmounted, ref as vueRef, shallowRef } from 'vue';
-import brandLogo from './assets/otangeles-logo.svg';
-import logoMarkIcon from './assets/otangeles-icon.svg';
 
 let currentHookContext = null;
 
@@ -276,10 +274,10 @@ function Icon({ name, size = 20, color = 'currentColor', strokeWidth = 2 }) {
 }
 
 function Brand({ height = 30 }) {
-  return <img src={brandLogo} height={height} alt="Otangeles" style={{ display: 'block', height, width: 'auto' }} />;
+  return <img src="assets/otangeles-logo.svg" height={height} alt="Otangeles" style={{ display: 'block', height, width: 'auto' }} />;
 }
 function LogoMark({ size = 36 }) {
-  return <img src={logoMarkIcon} width={size} height={size} alt="" style={{ display: 'block' }} />;
+  return <img src="assets/otangeles-icon.svg" width={size} height={size} alt="" style={{ display: 'block' }} />;
 }
 
 // (photo pools removed — avatars are now gray+icon)
