@@ -283,9 +283,11 @@ function Checkbox({ checked, onChange, disabled, size = 18 }) {
 }
 
 // More-action dropdown — single button + menu
-function MoreActionMenu({ label = 'More action', icon = 'plus', items, disabled }) {
+function MoreActionMenu({ label = 'More action', icon = 'plus', items, disabled, style, buttonStyle }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const v = useViewport();
+  const isPhone = v.isMobile;
   useEffect(() => {
     if (!open) return;
     const onDoc = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -294,7 +296,7 @@ function MoreActionMenu({ label = 'More action', icon = 'plus', items, disabled 
   }, [open]);
 
   return (
-    <div ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
+    <div ref={ref} style={{ position: 'relative', display: 'inline-flex', ...style }}>
       <button
         onClick={() => setOpen(o => !o)}
         disabled={disabled}
@@ -304,15 +306,24 @@ function MoreActionMenu({ label = 'More action', icon = 'plus', items, disabled 
           border: '1px solid #E5E7EB', background: '#fff',
           color: '#1C192E', cursor: disabled ? 'not-allowed' : 'pointer',
           opacity: disabled ? 0.5 : 1, font: '600 13px Inter',
+          ...buttonStyle,
         }}>
         <Icon name={icon} size={14} color="#1C192E" /> {label}
         <Icon name="chevronDown" size={14} color="#6A7282" />
       </button>
       {open && (
         <div style={{
-          position: 'absolute', top: 'calc(100% + 4px)', right: 0,
+          position: isPhone ? 'fixed' : 'absolute',
+          top: isPhone ? 'auto' : 'calc(100% + 4px)',
+          left: isPhone ? 8 : 'auto',
+          right: isPhone ? 8 : 0,
+          bottom: isPhone ? 'calc(76px + env(safe-area-inset-bottom))' : 'auto',
           background: '#fff', border: '1px solid #E5E7EB', borderRadius: 8,
-          boxShadow: '0 10px 20px -8px rgba(0,0,0,0.15)', minWidth: 240, zIndex: 50,
+          boxShadow: '0 10px 20px -8px rgba(0,0,0,0.15)', minWidth: isPhone ? 0 : 240,
+          maxWidth: isPhone ? 'calc(100vw - 16px)' : 320,
+          maxHeight: isPhone ? 'calc(100vh - 120px)' : 'min(420px, calc(100vh - 96px))',
+          overflowY: 'auto',
+          zIndex: 90,
           padding: 6,
         }}>
           {items.map((it, i) => (
@@ -356,6 +367,8 @@ function useViewport() {
 
 function ToastHost() {
   const [toasts, setToasts] = useState([]);
+  const v = useViewport();
+  const isPhone = v.isMobile;
   useEffect(() => {
     function onT(e) {
       const t = e.detail;
@@ -366,7 +379,17 @@ function ToastHost() {
     return () => window.removeEventListener('ois-toast', onT);
   }, []);
   return (
-    <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 200, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
+    <div style={{
+      position: 'fixed',
+      bottom: isPhone ? 'calc(84px + env(safe-area-inset-bottom))' : 24,
+      left: isPhone ? 8 : 'auto',
+      right: isPhone ? 8 : 24,
+      zIndex: 200,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8,
+      pointerEvents: 'none',
+    }}>
       {toasts.map(t => {
         const tones = {
           success: { bg: '#fff', fg: '#1C192E', accent: '#00C9A7', icon: 'check' },
@@ -379,7 +402,7 @@ function ToastHost() {
             background: tn.bg, color: tn.fg, padding: '12px 16px', borderRadius: 10,
             boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15), 0 4px 6px -4px rgba(0,0,0,0.1)',
             border: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', gap: 10,
-            minWidth: 280, maxWidth: 420, pointerEvents: 'auto', fontSize: 13, fontWeight: 600,
+            minWidth: isPhone ? 0 : 280, maxWidth: isPhone ? '100%' : 420, pointerEvents: 'auto', fontSize: 13, fontWeight: 600,
             borderLeft: `3px solid ${tn.accent}`,
           }}>
             <Icon name={tn.icon} size={16} color={tn.accent} />

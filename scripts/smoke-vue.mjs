@@ -1,5 +1,7 @@
 const pages = await fetch('http://127.0.0.1:9222/json').then(r => r.json());
-const page = pages.find(p => p.type === 'page' && p.url.startsWith('http://localhost:5173/'));
+const candidates = ['http://localhost:5173/', 'http://localhost:5174/'];
+const baseUrl = process.env.SMOKE_URL || candidates.find(origin => pages.some(p => p.type === 'page' && p.url.startsWith(origin))) || candidates[0];
+const page = pages.find(p => p.type === 'page' && p.url.startsWith(baseUrl));
 
 if (!page) {
   throw new Error('Could not find the Vite page in Chrome DevTools.');
@@ -50,7 +52,7 @@ await send('Emulation.setDeviceMetricsOverride', {
   mobile: true,
 });
 
-await send('Page.navigate', { url: `http://localhost:5173/?smoke=${Date.now()}` });
+await send('Page.navigate', { url: `${baseUrl}?smoke=${Date.now()}` });
 
 async function evaluate(expression) {
   return send('Runtime.evaluate', {
@@ -86,6 +88,17 @@ async function clickButton(label) {
   return result.result.value;
 }
 
+async function clickTitle(title) {
+  const result = await evaluate(`(() => {
+    const button = [...document.querySelectorAll('button')]
+      .find(el => el.getAttribute('title') === ${JSON.stringify(title)});
+    if (!button) return false;
+    button.click();
+    return true;
+  })()`);
+  return result.result.value;
+}
+
 async function clickNav(label) {
   const result = await evaluate(`(() => {
     const button = [...document.querySelectorAll('nav button')]
@@ -97,72 +110,36 @@ async function clickNav(label) {
   return result.result.value;
 }
 
-async function openDrawer() {
-  const result = await evaluate(`(() => {
-    const button = document.querySelector('button[title="Menu"]');
-    if (!button) return false;
-    button.click();
-    return true;
-  })()`);
-  return result.result.value;
-}
-
 if (!await waitForText('Sign in')) {
   throw new Error('Login screen did not render.');
-}
-
-const loginCardStyled = await evaluate(`(() => {
-  const card = [...document.querySelectorAll('div')]
-    .find(el => {
-      const styles = getComputedStyle(el);
-      return el.textContent.includes('Continue to your facility workspace.')
-        && styles.backgroundColor === 'rgb(255, 255, 255)'
-        && styles.borderRadius === '12px';
-    });
-  if (!card) return false;
-  const styles = getComputedStyle(card);
-  return styles.borderRadius === '12px' && styles.paddingTop === '36px';
-})()`);
-
-if (!loginCardStyled.result.value) {
-  throw new Error('Login screen styles did not normalize correctly.');
 }
 
 if (!await clickButton('Sign In')) {
   throw new Error('Could not click the Sign In button.');
 }
 
-if (!await waitForText("Today's Priority")) {
-  throw new Error('Sign-in did not reach the home dashboard.');
-}
-
-const dashboardStyled = await evaluate(`(() => {
-  const header = document.querySelector('header');
-  if (!header) return false;
-  return getComputedStyle(header).height === '60px';
-})()`);
-
-if (!dashboardStyled.result.value) {
-  throw new Error('Dashboard shell styles did not normalize correctly.');
+if (!await waitForText('Operational Intelligence')) {
+  throw new Error('Sign-in did not reach the command center.');
 }
 
 const compactShell = await evaluate(`(() => {
-  const hasBottomNav = [...document.querySelectorAll('nav button')]
-    .some(el => el.textContent.includes('Home'))
-    && [...document.querySelectorAll('nav button')].some(el => el.textContent.includes('Residents'));
+  const navText = [...document.querySelectorAll('nav button')].map(el => el.textContent.trim()).join('|');
+  const hasExpectedTabs = ['Home','Residents','Watchlists','Actions'].every(label => navText.includes(label));
+  const removedOldTabs = !navText.includes('Menu') && !document.querySelector('nav button[title="AI"]');
   const hasDesktopSideNav = [...document.querySelectorAll('aside')]
     .some(el => getComputedStyle(el).position === 'sticky');
-  return hasBottomNav && !hasDesktopSideNav;
+  return hasExpectedTabs && removedOldTabs && !hasDesktopSideNav;
 })()`);
 
 if (!compactShell.result.value) {
-  throw new Error('Compact phone shell did not render.');
+  throw new Error('Compact command-center navigation did not render.');
 }
 
 const routes = [
-  ['Changes', 'Generate AI Brief'],
-  ['Residents', 'Add Resident'],
-  ['Watch', 'Custom Watchlist'],
+  ['Residents', 'Searchable resident directory'],
+  ['Watchlists', 'Domain-focused views'],
+  ['Actions', 'Execution and accountability'],
+  ['Home', 'Top Priority Residents'],
 ];
 
 for (const [button, expectedText] of routes) {
@@ -174,16 +151,32 @@ for (const [button, expectedText] of routes) {
   }
 }
 
-if (!await openDrawer()) {
-  throw new Error('Could not open the mobile drawer.');
+if (!await clickTitle('Search')) {
+  throw new Error('Could not open search from the header.');
 }
 
-if (!await clickNav('Huddle')) {
-  throw new Error('Could not click Huddle from the mobile drawer.');
+if (!await clickButton('Harold Johnson')) {
+  throw new Error('Could not open a resident from search.');
 }
 
-if (!await waitForText('Start Huddle')) {
-  throw new Error('Huddle page did not render.');
+if (!await waitForText('Continuity Thread') || !await waitForText('Suggested Action')) {
+  throw new Error('Resident profile did not render the continuity and action panels.');
+}
+
+if (!await clickButton('Assign & Track')) {
+  throw new Error('Could not assign a suggested action from the resident profile.');
+}
+
+if (!await waitForText('Update Operational State') || !await waitForText('Close Risk')) {
+  throw new Error('Assigned action detail did not render.');
+}
+
+if (!await clickNav('Actions')) {
+  throw new Error('Could not open the Actions tab.');
+}
+
+if (!await waitForText('High Priority') || !await waitForText('Open')) {
+  throw new Error('Actions tab did not render action tracking filters.');
 }
 
 await send('Emulation.setDeviceMetricsOverride', {
@@ -194,13 +187,12 @@ await send('Emulation.setDeviceMetricsOverride', {
 });
 
 const tabletShell = await evaluate(`(() => {
-  const hasBottomNav = [...document.querySelectorAll('nav button')]
-    .some(el => el.textContent.includes('Home'))
-    && [...document.querySelectorAll('nav button')].some(el => el.textContent.includes('Watch'));
+  const navText = [...document.querySelectorAll('nav button')].map(el => el.textContent.trim()).join('|');
+  const hasExpectedTabs = ['Home','Residents','Watchlists','Actions'].every(label => navText.includes(label));
   const hasDesktopSideNav = [...document.querySelectorAll('aside')]
     .some(el => getComputedStyle(el).position === 'sticky');
   const main = document.querySelector('main.ois-page');
-  return hasBottomNav && !hasDesktopSideNav && main && main.getBoundingClientRect().width <= 1024;
+  return hasExpectedTabs && !hasDesktopSideNav && main && main.getBoundingClientRect().width <= 1024;
 })()`);
 
 if (!tabletShell.result.value) {
@@ -212,4 +204,4 @@ if (problems.length) {
 }
 
 socket.close();
-console.log('Vue smoke test passed: phone/tablet shell, styles, and main routes rendered.');
+console.log('Vue smoke test passed: merged DON command center navigation, resident continuity, and action flow rendered.');

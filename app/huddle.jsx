@@ -1,4 +1,4 @@
-// Huddle page — facility-wide huddle history + saved AI summaries
+// Huddle page — facility-wide huddle history + saved summaries
 
 const HUDDLE_HISTORY = [
   {
@@ -101,7 +101,7 @@ function HuddlePage({ user, onOpenResident }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: isPhone ? 20 : 28 }}>
       <PageHeader
         title="Huddle"
-        subtitle="Every shift handoff, clinical round, and care plan meeting in one place. AI captures the agenda, transcribes the call, and posts the summary to each resident's chart automatically."
+        subtitle="Every shift handoff, clinical round, and care plan meeting in one place, with summaries and follow-ups attached to resident charts."
         actions={[
           <Button key="start" variant="lavender" icon="video" onClick={() => setShowStart(true)}>Start Huddle</Button>,
         ]}
@@ -195,7 +195,7 @@ function HuddleRow({ h, onClick }) {
             {h.duration}
           </div>
           <div style={{ fontSize: 12, color: '#6A7282', display: 'flex', alignItems: 'center', gap: 6, minWidth: 100 }}>
-            <Icon name="sparkles" size={12} color="#845EC2" />
+            <Icon name="check" size={12} color="#845EC2" />
             {h.actions.length} action{h.actions.length === 1 ? '' : 's'}
           </div>
           {!isPhone && <Icon name="chevronRight" size={18} color="#99A1AF" />}
@@ -243,8 +243,8 @@ function HuddleDetail({ huddle: h, onBack, onOpenResident }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <Card style={{ padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <Icon name="sparkles" size={14} color="#845EC2" />
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#67568C', letterSpacing: '0.04em' }}>AI SUMMARY</span>
+              <Icon name="fileText" size={14} color="#845EC2" />
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#67568C', letterSpacing: '0.04em' }}>SUMMARY</span>
             </div>
             <div style={{ fontSize: 14, lineHeight: '21px', color: '#1C192E' }}>{h.summary}</div>
           </Card>

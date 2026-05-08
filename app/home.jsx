@@ -1,14 +1,27 @@
 // Home page — DON facility-level operations view
 
-function HomePage({ user, onOpenResident, onNav }) {
-  const priority = priorityResidents();
+function HomePage({ user, actions, onOpenResident, onOpenAction, onNav }) {
+  const priority = priorityResidentsWithActions(actions);
   const critical = priority.filter(r => r.risk === 'critical');
   const high     = priority.filter(r => r.risk === 'high');
-  const watch    = priority.filter(r => r.risk === 'watch');
-  const stable   = priority.filter(r => r.risk === 'stable');
+  const actionCounts = actionStatusCounts(actions);
+  const openActions = (actions || [])
+    .filter(a => a.status !== 'Completed')
+    .slice()
+    .sort((a, b) => {
+      const rank = { Overdue: 0, Escalated: 1, 'No Action': 2, Assigned: 3, 'In Progress': 4 };
+      return (rank[a.status] ?? 9) - (rank[b.status] ?? 9);
+    })
+    .slice(0, 4);
+  const domainCounts = RISK_DOMAINS.map(domain => ({
+    domain,
+    count: RESIDENTS.filter(r =>
+      (r.drivers || []).includes(domain.id) ||
+      residentEvidenceItems(r).some(item => item.domain === domain.id)
+    ).length,
+  })).filter(item => item.count > 0);
   const occPct = Math.round(FACILITY.occupied / FACILITY.beds * 100);
   const [showHuddle, setShowHuddle] = useState(false);
-  const [showAI, setShowAI] = useState(false);
   const v = useViewport();
   const isPhone = v.isMobile;
 
@@ -25,52 +38,33 @@ function HomePage({ user, onOpenResident, onNav }) {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', color: '#99A1AF' }}>{greeting()} · MAY 7, 2026</div>
-              <div style={{ fontSize: isPhone ? 26 : 30, fontWeight: 700, letterSpacing: '-0.02em', marginTop: 6, color: '#1C192E' }}>Hi, {user.name.split(' ')[0]}.</div>
-              <div style={{ fontSize: 13, color: '#6A7282', marginTop: 4 }}>{FACILITY.name} · {FACILITY.building}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: '#99A1AF' }}>{greeting()} · DON COMMAND CENTER</div>
+              <div style={{ fontSize: isPhone ? 25 : 30, fontWeight: 800, letterSpacing: '-0.02em', marginTop: 6, color: '#1C192E' }}>Operational Intelligence</div>
+              <div style={{ fontSize: 13, color: '#6A7282', marginTop: 4, lineHeight: '18px' }}>
+                {FACILITY.name} · persistent continuity across resident risk, evidence, action ownership, and closure.
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 8, width: isPhone ? '100%' : 'auto' }}>
               <Button variant="secondary" icon="message" style={{ flex: isPhone ? 1 : 'none' }} onClick={() => setShowHuddle(true)}>Start Huddle</Button>
-              <Button variant="lavender" icon="sparkles" style={{ flex: isPhone ? 1 : 'none' }} onClick={() => setShowAI(true)}>Ask AI</Button>
+              <Button variant="primary" icon="check" style={{ flex: isPhone ? 1 : 'none' }} onClick={() => onNav('actions')}>Open Actions</Button>
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: isPhone ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap: isPhone ? 14 : 20, borderTop: '1px solid #EEEEEE', paddingTop: 18 }}>
             <HeroStat label="Beds occupied" value={`${FACILITY.occupied} / ${FACILITY.beds}`} sub={`${occPct}% capacity`} />
-            <HeroStat label="New admits 24h" value={FACILITY.admits24h} sub="1 awaiting H&P" />
-            <HeroStat label="Discharges 24h" value={FACILITY.discharges24h} sub="0 returns" />
+            <HeroStat label="High concern" value={critical.length + high.length} sub={`${critical.length} critical · ${high.length} high`} />
+            <HeroStat label="Open actions" value={actionCounts.open} sub={`${actionCounts.overdue} overdue · ${actionCounts.escalated} escalated`} />
             <HeroStat label="Pending provider" value={FACILITY.pendingProvider} sub="2 over 4h" />
           </div>
         </div>
 
-        <Card style={{ padding: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <Icon name="sparkles" size={14} color="#52525B" />
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#52525B', letterSpacing: '0.04em' }}>OVERNIGHT BRIEF · AI</span>
-          </div>
-          <div style={{ fontSize: 13, color: '#1C192E', lineHeight: '19px', marginBottom: 14 }}>
-            <b>3 escalations</b>, <b>6 follow-ups</b>, and <b>2 awaiting nephrology</b>.
-            Highest concern: M. Bell — sepsis screen positive 40m ago.
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <BriefBullet text="Mr. Johnson · BP trend −14 pts in 4h. Wound exudate ↑." tone="critical" />
-            <BriefBullet text="Marjorie Bell · sepsis screen positive, no provider response." tone="critical" />
-            <BriefBullet text="Rafael Moreno · INR 3.8, warfarin held pending confirmation." tone="high" />
-          </div>
-          <button onClick={() => emitToast('Opening overnight thread — full context.', 'info')} style={{
-            marginTop: 14, padding: '8px 12px', borderRadius: 6, border: '1px solid #E5E7EB', width: '100%',
-            background: '#fff', color: '#1C192E', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}>
-            View full overnight thread <Icon name="chevronRight" size={12} color="#1C192E" />
-          </button>
-        </Card>
+        <OperationalCognitionPanel actions={actions} compact={isPhone} />
       </div>
 
       {/* Priority list */}
       <div>
         <SectionHeader
-          title="Today's Priority"
-          subtitle="Critical and High-risk residents only. AI keeps this list current."
+          title="Top Priority Residents"
+          subtitle="Ranked by overall risk, deterioration trend, and whether follow-through is owned."
           right={
             <div style={{ display: 'flex', gap: 8 }}>
               <Chip tone="critical" dot>{critical.length} Critical</Chip>
@@ -79,12 +73,12 @@ function HomePage({ user, onOpenResident, onNav }) {
           }
         />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {[...critical, ...high].map(r => (
-            <PriorityRow key={r.id} r={r} onClick={() => onOpenResident(r.id)} />
+          {priority.slice(0, 5).map(r => (
+            <OperationalResidentCard key={r.id} r={r} actions={actions} onClick={() => onOpenResident(r.id)} />
           ))}
-          {critical.length + high.length === 0 && (
+          {priority.length === 0 && (
             <Card style={{ padding: 24, textAlign: 'center', color: '#6A7282', fontSize: 13 }}>
-              No Critical or High-risk residents right now. Watch and Stable residents are tracked under the Residents tab.
+              No resident risk signals are active right now.
             </Card>
           )}
         </div>
@@ -97,17 +91,81 @@ function HomePage({ user, onOpenResident, onNav }) {
         </button>
       </div>
 
-      {/* Risk drivers */}
+      <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) minmax(280px, 0.75fr)', gap: 12 }}>
+        <div>
+          <SectionHeader title="Unit Risk Heatmap" subtitle="Tap a unit to narrow the resident directory." />
+          <UnitRiskHeatmap actions={actions} onSelectUnit={unit => { emitToast(`Opening residents for ${unit}.`, 'info'); onNav('residents'); }} />
+        </div>
+        <div>
+          <SectionHeader title="Open Actions" subtitle="Execution and accountability queue." />
+          <Card style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+              <ActionMiniStat label="Overdue" value={actionCounts.overdue} tone="critical" />
+              <ActionMiniStat label="Unassigned" value={actionCounts.unassigned} tone="watch" />
+              <ActionMiniStat label="Escalated" value={actionCounts.escalated} tone="high" />
+              <ActionMiniStat label="Due today" value={actionCounts.dueToday} tone="info" />
+            </div>
+            {openActions.map(action => {
+              const r = RESIDENTS.find(x => x.id === action.residentId);
+              return (
+                <button key={action.id} onClick={() => onOpenAction(action.id)} style={{
+                  border: '1px solid #E5E7EB', borderRadius: 9, padding: 10,
+                  background: '#fff', cursor: 'pointer', textAlign: 'left',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                }}>
+                  <ActionStatusBadge status={action.status} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 900, color: '#1C192E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{action.type}</div>
+                    <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2 }}>{r ? `${r.name} · Rm ${r.room}` : 'Resident'} · {action.owner}</div>
+                  </div>
+                  <Icon name="chevronRight" size={14} color="#99A1AF" />
+                </button>
+              );
+            })}
+            <Button variant="secondary" icon="check" onClick={() => onNav('actions')}>View Action Queue</Button>
+          </Card>
+        </div>
+      </div>
+
       <div>
-        <SectionHeader title="Risk Drivers" subtitle="Active risk categories across the facility. Click a category to see who's affected." />
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${isPhone ? 150 : 190}px, 1fr))`, gap: 10 }}>
-          {RISK_CATEGORIES.map(cat => <RiskCategoryCard key={cat.id} cat={cat} />)}
+        <SectionHeader title="What's New Today" subtitle="Risk domains are one unified intelligence system, not separate dashboards." />
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${isPhone ? 148 : 190}px, 1fr))`, gap: 10 }}>
+          {domainCounts.map(item => (
+            <RiskDomainSummaryCard key={item.domain.id} item={item} onClick={() => onNav('watchlist')} />
+          ))}
         </div>
       </div>
 
       {showHuddle && <HuddleModal user={user} onClose={() => setShowHuddle(false)} onOpenResident={onOpenResident} />}
-      {showAI && <AskAIPanel user={user} onClose={() => setShowAI(false)} onOpenResident={onOpenResident} onNav={onNav} />}
     </div>
+  );
+}
+
+function ActionMiniStat({ label, value, tone }) {
+  const color = tone === 'critical' ? '#B91C1C'
+    : tone === 'high' ? '#C2410C'
+    : tone === 'watch' ? '#92703A'
+    : '#67568C';
+  return (
+    <div style={{ border: '1px solid #EEEEEE', borderRadius: 8, padding: 10, background: '#FAFAFC' }}>
+      <div style={{ fontSize: 11, fontWeight: 900, color: '#6A7282' }}>{label}</div>
+      <div style={{ fontSize: 24, fontWeight: 900, color, marginTop: 2, lineHeight: 1 }}>{value}</div>
+    </div>
+  );
+}
+
+function RiskDomainSummaryCard({ item, onClick }) {
+  return (
+    <Card hoverable onClick={onClick} style={{ padding: 15, display: 'flex', flexDirection: 'column', gap: 11 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <Icon name={RISK_CATEGORIES.find(c => c.id === item.domain.id)?.icon || 'activity'} size={18} color="#52525B" />
+        <div style={{ fontSize: 24, fontWeight: 900, color: '#1C192E', lineHeight: 1 }}>{item.count}</div>
+      </div>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 900, color: '#1C192E', lineHeight: '17px' }}>{item.domain.label}</div>
+        <div style={{ fontSize: 11, color: '#6A7282', marginTop: 3 }}>residents with active signals</div>
+      </div>
+    </Card>
   );
 }
 
@@ -237,7 +295,7 @@ function HuddleModal({ user, onClose, onOpenResident }) {
       <ModalShell title="Huddle in Progress" subtitle={`${finalIds.length} on call · started just now`} onClose={onClose} width={680}
         footer={<>
           <Button variant="ghost" onClick={onClose}>Leave</Button>
-          <Button variant="lavender" icon="check" onClick={() => { emitToast(`Huddle ended — AI summary saved to ${agenda.length} resident records.`); onClose(); }}>End & Save Summary</Button>
+          <Button variant="lavender" icon="check" onClick={() => { emitToast(`Huddle ended — summary saved to ${agenda.length} resident records.`); onClose(); }}>End & Save Summary</Button>
         </>}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ background: '#1C192E', borderRadius: 12, padding: 16, color: '#fff', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -265,7 +323,7 @@ function HuddleModal({ user, onClose, onOpenResident }) {
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#6A7282', marginBottom: 8 }}>AGENDA · AI CAPTURING</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#6A7282', marginBottom: 8 }}>AGENDA · LIVE CAPTURE</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {agenda.map(a => (
                 <div key={a.id} style={{ display: 'flex', gap: 10, padding: '10px 12px', background: '#F5F2FD', borderRadius: 8, fontSize: 13 }}>
@@ -281,7 +339,7 @@ function HuddleModal({ user, onClose, onOpenResident }) {
   }
 
   return (
-    <ModalShell title="Start Huddle" subtitle="Quick standup with on-shift care team. AI captures the agenda and posts notes to each resident." onClose={onClose} width={680}
+    <ModalShell title="Start Huddle" subtitle="Quick standup with on-shift care team. Notes and resident follow-ups stay attached to the chart." onClose={onClose} width={680}
       footer={<>
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button variant="lavender" icon="video" onClick={() => setStep('live')}>Start Now ({finalIds.length})</Button>
@@ -292,11 +350,11 @@ function HuddleModal({ user, onClose, onOpenResident }) {
           <Input value={topic} onChange={e => setTopic(e.target.value)} />
         </div>
         <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#6A7282', marginBottom: 6 }}>AGENDA — AI suggested from overnight events</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#6A7282', marginBottom: 6 }}>AGENDA</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
             {agenda.map(a => (
               <div key={a.id} style={{ display: 'flex', gap: 8, padding: '8px 10px', border: '1px solid #EEEEEE', borderRadius: 6, fontSize: 13, alignItems: 'center' }}>
-                <Icon name="sparkles" size={12} color="#845EC2" />
+                <Icon name="fileText" size={12} color="#845EC2" />
                 <span style={{ flex: 1 }}>{a.text}</span>
                 <IconButton icon="x" size={24} onClick={() => setAgenda(agenda.filter(x => x.id !== a.id))} />
               </div>
@@ -334,97 +392,6 @@ function HuddleModal({ user, onClose, onOpenResident }) {
             })}
           </div>
         </div>
-      </div>
-    </ModalShell>
-  );
-}
-
-// ============== ASK AI PANEL ==============
-function AskAIPanel({ user, onClose, onOpenResident, onNav }) {
-  const [messages, setMessages] = useState([
-    { role: 'ai', text: `Hi ${user.name.split(' ')[0]}, I have full context on ${FACILITY.name}. Ask me about residents, trends, staffing, or risks.` },
-  ]);
-  const [input, setInput] = useState('');
-  const [busy, setBusy] = useState(false);
-  const suggestions = [
-    'Who needs my attention before noon?',
-    'Summarize overnight events for the DON',
-    'Which residents have rising fall risk this week?',
-    'Compare today\'s priority list to yesterday',
-  ];
-  const v = useViewport();
-  const isPhone = v.isMobile;
-
-  async function send(text) {
-    const q = (text ?? input).trim();
-    if (!q || busy) return;
-    setMessages(m => [...m, { role: 'me', text: q }]);
-    setInput('');
-    setBusy(true);
-    try {
-      const ctx = `You are an AI clinical assistant for a Director of Nursing at ${FACILITY.name} (${FACILITY.occupied}/${FACILITY.beds} beds occupied). The facility has ${critical().length} critical and ${high().length} high-risk residents. Critical: ${critical().map(r=>r.name+' ('+r.dx+')').join('; ')}. Be concise (under 80 words), clinical, and direct. No emoji.`;
-      const reply = await window.claude.complete({
-        messages: [
-          { role: 'user', content: ctx + '\n\nDON asks: ' + q },
-        ],
-      });
-      setMessages(m => [...m, { role: 'ai', text: reply }]);
-    } catch (e) {
-      setMessages(m => [...m, { role: 'ai', text: 'I had trouble reaching the model. Try again in a moment.' }]);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function critical() { return priorityResidents().filter(r => r.risk === 'critical'); }
-  function high() { return priorityResidents().filter(r => r.risk === 'high'); }
-
-  return (
-    <ModalShell title="Ask AI" subtitle="Facility-aware assistant. Knows every resident, every change, every plan." onClose={onClose} width={640}
-      footer={<>
-        <div style={{ flex: 1, display: 'flex', gap: 8, flexDirection: isPhone ? 'column' : 'row' }}>
-          <Input placeholder="Ask about residents, trends, staffing…" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} style={{ flex: 1 }} />
-          <Button variant="lavender" icon="arrowRight" style={{ width: isPhone ? '100%' : 'auto' }} onClick={() => send()} disabled={busy}>{busy ? '…' : 'Send'}</Button>
-        </div>
-      </>}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minHeight: 360 }}>
-        {messages.map((m, i) => (
-          <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexDirection: m.role === 'me' ? 'row-reverse' : 'row' }}>
-            {m.role === 'ai'
-              ? <div style={{ width: 32, height: 32, borderRadius: 9999, background: 'linear-gradient(#845EC2 37%, #00C9A7 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name="sparkles" size={14} color="#fff" /></div>
-              : <Avatar initials={user.initials} seed={user.id} size={32} />}
-            <div style={{
-              maxWidth: '80%', padding: '10px 14px', borderRadius: 12, fontSize: 13, lineHeight: '19px',
-              background: m.role === 'me' ? '#845EC2' : '#F5F2FD',
-              color: m.role === 'me' ? '#fff' : '#1C192E',
-              whiteSpace: 'pre-wrap',
-            }}>{m.text}</div>
-          </div>
-        ))}
-        {busy && (
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <div style={{ width: 32, height: 32, borderRadius: 9999, background: 'linear-gradient(#845EC2 37%, #00C9A7 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="sparkles" size={14} color="#fff" /></div>
-            <div style={{ display: 'flex', gap: 4, padding: '12px 14px', background: '#F5F2FD', borderRadius: 12 }}>
-              {[0,1,2].map(i => <span key={i} style={{ width: 6, height: 6, borderRadius: 9999, background: '#845EC2', opacity: 0.4, animation: `ois-bounce 1.2s ${i*0.15}s infinite` }} />)}
-            </div>
-          </div>
-        )}
-        {messages.length === 1 && (
-          <div style={{ marginTop: 8 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#6A7282', marginBottom: 8, letterSpacing: '0.04em' }}>SUGGESTED</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {suggestions.map(s => (
-                <button key={s} onClick={() => send(s)} style={{
-                  textAlign: 'left', padding: '10px 12px', border: '1px solid #EEEEEE', borderRadius: 8,
-                  background: '#fff', cursor: 'pointer', fontSize: 13, color: '#1C192E', display: 'flex', alignItems: 'center', gap: 8,
-                }}>
-                  <Icon name="sparkles" size={12} color="#845EC2" />
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </ModalShell>
   );

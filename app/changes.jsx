@@ -2,40 +2,76 @@
 
 function ChangesPage({ onOpenResident, onOpenIssue }) {
   const [filter, setFilter] = useState('all');
-  const filtered = FACILITY_CHANGES.filter(c => filter === 'all' || c.severity === filter);
+  const priorityRank = { critical: 0, high: 1, watch: 2, stable: 3 };
+  const severityCounts = FACILITY_CHANGES.reduce((acc, c) => {
+    acc[c.severity] = (acc[c.severity] || 0) + 1;
+    return acc;
+  }, {});
+  const filtered = FACILITY_CHANGES
+    .filter(c => filter === 'all' || c.severity === filter)
+    .slice()
+    .sort((a, b) => (priorityRank[a.severity] ?? 9) - (priorityRank[b.severity] ?? 9));
   const v = useViewport();
   const isPhone = v.isMobile;
+  const topChange = filtered[0];
+  const topResident = topChange ? RESIDENTS.find(x => x.id === topChange.residentId) : null;
+  const [alertAgentRun, setAlertAgentRun] = useState({ status: 'idle', steps: [] });
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!topResident) {
+      setAlertAgentRun({ status: 'idle', steps: [] });
+      return;
+    }
+
+    setAlertAgentRun({ status: 'running', steps: [] });
+    runResidentAgentSkill({
+      skillId: RESIDENT_BASELINE_SKILL_ID,
+      residentId: topResident.id,
+      stepDelay: 160,
+      onStep: (step, steps) => {
+        if (!cancelled) setAlertAgentRun({ status: 'running', steps });
+      },
+    }).then(run => {
+      if (!cancelled) setAlertAgentRun({ status: 'complete', steps: run.steps, assessment: run.assessment });
+    }).catch(error => {
+      if (!cancelled) setAlertAgentRun({ status: 'error', steps: [{ id: 'alert-agent-error', status: 'error', label: 'Alert agent failed', detail: error.message, time: 'now' }] });
+    });
+
+    return () => { cancelled = true; };
+  }, [topResident ? `${filter}-${topResident.id}` : filter]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: isPhone ? 20 : 28 }}>
       <PageHeader
         title="Changes"
-        subtitle="AI-detected deviations across all residents in the last 24 hours. Click any card to open the resident."
+        subtitle="Clinical deviations across all residents in the last 24 hours. Click any card to open the resident."
         actions={[
-          <Button key="brief" variant="secondary" icon="sparkles" onClick={() => emitToast('AI brief generated — sent to your inbox.', 'info')}>Generate AI Brief</Button>,
           <Button key="filter" variant="secondary" icon="filter" onClick={() => emitToast('Advanced filters coming soon.', 'info')}>Filter</Button>,
         ]}
       />
 
       <Card style={{ padding: isPhone ? 12 : 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 0, maxWidth: '100%', overflowX: 'auto' }}>
-          <SegmentedControl
-            value={filter} onChange={setFilter}
-            options={[
-              { id: 'all', label: `All (${FACILITY_CHANGES.length})` },
-              { id: 'critical', label: 'Critical', tone: 'critical' },
-              { id: 'high', label: 'High', tone: 'high' },
-              { id: 'watch', label: 'Watch', tone: 'watch' },
-              { id: 'stable', label: 'Stable', tone: 'stable' },
-            ]}
-          />
-        </div>
-        <div style={{ flex: 1 }} />
-        <div style={{ fontSize: 12, color: '#6A7282', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <ChangeFilterGrid
+          value={filter}
+          onChange={setFilter}
+          counts={{ all: FACILITY_CHANGES.length, ...severityCounts }}
+          isPhone={isPhone}
+        />
+        <div style={{ fontSize: 12, color: '#6A7282', display: 'flex', alignItems: 'center', gap: 6, width: isPhone ? '100%' : 'auto', justifyContent: isPhone ? 'flex-start' : 'flex-end' }}>
           <span style={{ width: 8, height: 8, borderRadius: 9999, background: '#29BB89' }} />
           Live · updated 14s ago
         </div>
       </Card>
+
+      {topResident && (
+        <AgentExecutionLog
+          steps={alertAgentRun.steps}
+          title="Alert Agent Trace"
+          subtitle={`${topResident.name} - top ${filter === 'all' ? 'priority' : filter} alert is being checked with tool calls.`}
+          compact={isPhone}
+        />
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${isPhone ? 260 : 300}px, 1fr))`, gap: 12, alignItems: 'stretch' }}>
         {filtered.map((c, i) => {
@@ -48,6 +84,49 @@ function ChangesPage({ onOpenResident, onOpenIssue }) {
           </Card>
         )}
       </div>
+    </div>
+  );
+}
+
+function ChangeFilterGrid({ value, onChange, counts, isPhone }) {
+  const options = [
+    { id: 'all', label: 'All', tone: 'todo' },
+    { id: 'critical', label: 'Critical', tone: 'critical' },
+    { id: 'high', label: 'High', tone: 'high' },
+    { id: 'watch', label: 'Watch', tone: 'watch' },
+    { id: 'stable', label: 'Stable', tone: 'stable' },
+  ];
+  return (
+    <div style={{
+      flex: 1, minWidth: 0, display: 'grid',
+      gridTemplateColumns: isPhone ? 'repeat(2, minmax(0, 1fr))' : 'repeat(5, minmax(0, 1fr))',
+      gap: 8,
+    }}>
+      {options.map(o => {
+        const active = value === o.id;
+        const tone = o.tone === 'todo' ? { dot: '#845EC2', bg: '#F5F2FD', fg: '#67568C' } : RISK[o.tone];
+        return (
+          <button key={o.id} onClick={() => onChange(o.id)} style={{
+            minWidth: 0, minHeight: 42, borderRadius: 8,
+            border: `1px solid ${active ? tone.dot : '#E5E7EB'}`,
+            background: active ? tone.bg : '#fff',
+            color: active ? tone.fg : '#52525B',
+            cursor: 'pointer', padding: '8px 9px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+            font: '700 12px Inter',
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+              <span style={{ width: 7, height: 7, borderRadius: 9999, background: tone.dot, flexShrink: 0 }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.label}</span>
+            </span>
+            <span style={{
+              minWidth: 22, height: 22, padding: '0 6px', borderRadius: 9999,
+              background: active ? '#fff' : '#F4F4F5', color: active ? tone.fg : '#6A7282',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>{counts[o.id] || 0}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -87,25 +166,85 @@ function ChangeFeedCard({ c, r, onClick }) {
 
 // ============== WATCHLIST ==============
 
-function WatchlistPage({ onOpenResident }) {
-  const [active, setActive] = useState(null);
+function WatchlistPage({ actions, onOpenResident }) {
+  const [active, setActive] = useState('condition');
   const v = useViewport();
   const isPhone = v.isMobile;
-  if (active) {
-    const list = WATCHLISTS.find(w => w.id === active);
-    return <WatchlistDetail list={list} onBack={() => setActive(null)} onOpen={onOpenResident} />;
-  }
+  const domain = domainById(active);
+  const residents = priorityResidentsWithActions(actions).filter(r =>
+    (r.drivers || []).includes(active) ||
+    residentEvidenceItems(r).some(item => item.domain === active)
+  );
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: isPhone ? 20 : 28 }}>
       <PageHeader
-        title="Watchlist"
-        subtitle="Cohorts that need extra eyes. AI keeps these lists current — residents move on and off automatically."
+        title="Watchlists"
+        subtitle="Domain-focused views inside the same operational intelligence system. Residents stay ranked by overall risk."
         actions={[
-          <Button key="custom" variant="primary" icon="plus" onClick={() => emitToast('Custom watchlist builder coming soon.', 'info')}>Custom Watchlist</Button>,
+          <Button key="actions" variant="primary" icon="check" onClick={() => emitToast('Use Actions to assign and close follow-through from each resident.', 'info')}>Track Follow-through</Button>,
         ]}
       />
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${isPhone ? 240 : 280}px, 1fr))`, gap: 12 }}>
-        {WATCHLISTS.map(w => <WatchlistCard key={w.id} w={w} onClick={() => setActive(w.id)} />)}
+
+      <Card style={{ padding: 12, display: 'flex', gap: 8, overflowX: 'auto' }}>
+        {RISK_DOMAINS.map(d => {
+          const count = RESIDENTS.filter(r =>
+            (r.drivers || []).includes(d.id) ||
+            residentEvidenceItems(r).some(item => item.domain === d.id)
+          ).length;
+          const selected = active === d.id;
+          return (
+            <button key={d.id} onClick={() => setActive(d.id)} style={{
+              flex: '0 0 auto',
+              minWidth: isPhone ? 128 : 150,
+              borderRadius: 10,
+              border: `1px solid ${selected ? '#00C9A7' : '#E5E7EB'}`,
+              background: selected ? '#E7F5EF' : '#fff',
+              color: selected ? '#00795E' : '#1C192E',
+              padding: '10px 11px',
+              cursor: 'pointer',
+              textAlign: 'left',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                <span style={{ fontSize: 12, fontWeight: 900, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.short}</span>
+                <span style={{
+                  minWidth: 22, height: 22, borderRadius: 9999,
+                  background: selected ? '#fff' : '#F4F4F5',
+                  color: selected ? '#00795E' : '#6A7282',
+                  fontSize: 11, fontWeight: 900,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                }}>{count}</span>
+              </div>
+              <div style={{ fontSize: 11, color: selected ? '#3F6B4E' : '#6A7282', marginTop: 5, lineHeight: '15px' }}>{d.label}</div>
+            </button>
+          );
+        })}
+      </Card>
+
+      <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) 300px', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <SectionHeader
+            title={domain.label}
+            subtitle={`${residents.length} residents with active signals. Cards show domain evidence, action status, and global risk priority.`}
+          />
+          {residents.map(r => (
+            <OperationalResidentCard key={r.id} r={r} actions={actions} focusDomain={active} onClick={() => onOpenResident(r.id)} />
+          ))}
+          {residents.length === 0 && (
+            <Card style={{ padding: 28, textAlign: 'center', color: '#6A7282', fontSize: 13 }}>
+              No residents are currently on this watchlist.
+            </Card>
+          )}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <OperationalCognitionPanel actions={actions} compact={isPhone} />
+          <Card style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 9 }}>
+            <div style={{ fontSize: 14, fontWeight: 900, color: '#1C192E' }}>Suggested owner rule</div>
+            <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px' }}>
+              {domain.label} signals normally route to <b>{domain.owner}</b> with a recommended action of <b>{domain.action}</b>.
+            </div>
+            <DomainChip domainId={active} />
+          </Card>
+        </div>
       </div>
     </div>
   );
@@ -198,16 +337,28 @@ function WatchlistDetail({ list, onBack, onOpen }) {
 
 // ============== CHAT POPOVER ==============
 
-function ChatDock({ chats, onClose, onSendCall }) {
+function ChatDock({ chats, onClose, onSendCall, mobile }) {
   if (!chats || chats.length === 0) return null;
+  const visibleChats = mobile ? chats.slice(-1) : chats;
   return (
-    <div style={{ position: 'fixed', right: 24, bottom: 0, zIndex: 60, display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-      {chats.map(c => <ChatWindow key={c.id} chat={c} onClose={() => onClose(c.id)} onCall={() => onSendCall(c.id)} />)}
+    <div style={{
+      position: 'fixed',
+      left: mobile ? 8 : 'auto',
+      right: mobile ? 8 : 24,
+      bottom: mobile ? 'calc(76px + env(safe-area-inset-bottom))' : 0,
+      zIndex: 60,
+      display: 'flex',
+      gap: 12,
+      alignItems: 'flex-end',
+      justifyContent: 'flex-end',
+      pointerEvents: 'none',
+    }}>
+      {visibleChats.map(c => <ChatWindow key={c.id} chat={c} mobile={mobile} onClose={() => onClose(c.id)} onCall={() => onSendCall(c.id)} />)}
     </div>
   );
 }
 
-function ChatWindow({ chat, onClose, onCall }) {
+function ChatWindow({ chat, onClose, onCall, mobile }) {
   const [draft, setDraft] = useState('');
   const [messages, setMessages] = useState(chat.messages || []);
   const [callState, setCallState] = useState(null); // null | 'voice' | 'video' | 'summary'
@@ -241,9 +392,10 @@ function ChatWindow({ chat, onClose, onCall }) {
 
   return (
     <div style={{
-      width: 340, height: 480, background: '#fff', borderRadius: '12px 12px 0 0',
+      width: mobile ? '100%' : 340, height: mobile ? 'min(68vh, 500px)' : 480, background: '#fff', borderRadius: mobile ? 12 : '12px 12px 0 0',
       boxShadow: '0 -4px 24px rgba(0,0,0,0.12)', display: 'flex', flexDirection: 'column',
-      border: '1px solid #E5E7EB', borderBottom: 0, overflow: 'hidden',
+      border: '1px solid #E5E7EB', borderBottom: mobile ? '1px solid #E5E7EB' : 0, overflow: 'hidden',
+      pointerEvents: 'auto',
     }}>
       <div style={{ padding: '10px 12px', borderBottom: '1px solid #EEEEEE', background: '#1C192E', color: '#fff', display: 'flex', alignItems: 'center', gap: 10 }}>
         <Avatar initials={chat.user.initials} seed={chat.user.id} size={32} />
@@ -268,13 +420,13 @@ function ChatWindow({ chat, onClose, onCall }) {
             </div>
           </div>
           <div style={{ fontSize: 11, opacity: 0.6, marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Icon name="mic" size={12} color="#fff" /> AI is transcribing & summarizing — patient {chat.resident.name} auto-tagged.
+            <Icon name="mic" size={12} color="#fff" /> Call capture active — patient {chat.resident.name} auto-tagged.
           </div>
         </div>
       ) : callState === 'summary' && callSummary ? (
         <div style={{ flex: 1, padding: 14, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Icon name="sparkles" size={14} color="#845EC2" />
+            <Icon name="fileText" size={14} color="#845EC2" />
             <div style={{ fontSize: 11, fontWeight: 700, color: '#67568C', letterSpacing: '0.04em' }}>CALL SUMMARY · {callSummary.duration}</div>
           </div>
           <div style={{ fontSize: 13, lineHeight: '18px', padding: 12, background: '#F5F2FD', borderRadius: 8 }}>{callSummary.summary}</div>

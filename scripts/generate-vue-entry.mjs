@@ -8,10 +8,15 @@ const files = [
   'app/shell.jsx',
   'app/login.jsx',
   'app/home.jsx',
+  'app/agent-runtime.jsx',
+  'app/operations.jsx',
+  'app/ai.jsx',
   'app/residents.jsx',
   'app/changes.jsx',
+  'app/actions.jsx',
   'app/huddle.jsx',
   'app/messages-fab.jsx',
+  'app/profile.jsx',
   'app/app.jsx',
 ];
 

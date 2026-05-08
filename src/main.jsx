@@ -479,9 +479,11 @@ function Checkbox({ checked, onChange, disabled, size = 18 }) {
 }
 
 // More-action dropdown — single button + menu
-function MoreActionMenu({ label = 'More action', icon = 'plus', items, disabled }) {
+function MoreActionMenu({ label = 'More action', icon = 'plus', items, disabled, style, buttonStyle }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const v = useViewport();
+  const isPhone = v.isMobile;
   useEffect(() => {
     if (!open) return;
     const onDoc = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -490,7 +492,7 @@ function MoreActionMenu({ label = 'More action', icon = 'plus', items, disabled 
   }, [open]);
 
   return (
-    <div ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
+    <div ref={ref} style={{ position: 'relative', display: 'inline-flex', ...style }}>
       <button
         onClick={() => setOpen(o => !o)}
         disabled={disabled}
@@ -500,15 +502,24 @@ function MoreActionMenu({ label = 'More action', icon = 'plus', items, disabled 
           border: '1px solid #E5E7EB', background: '#fff',
           color: '#1C192E', cursor: disabled ? 'not-allowed' : 'pointer',
           opacity: disabled ? 0.5 : 1, font: '600 13px Inter',
+          ...buttonStyle,
         }}>
         <Icon name={icon} size={14} color="#1C192E" /> {label}
         <Icon name="chevronDown" size={14} color="#6A7282" />
       </button>
       {open && (
         <div style={{
-          position: 'absolute', top: 'calc(100% + 4px)', right: 0,
+          position: isPhone ? 'fixed' : 'absolute',
+          top: isPhone ? 'auto' : 'calc(100% + 4px)',
+          left: isPhone ? 8 : 'auto',
+          right: isPhone ? 8 : 0,
+          bottom: isPhone ? 'calc(76px + env(safe-area-inset-bottom))' : 'auto',
           background: '#fff', border: '1px solid #E5E7EB', borderRadius: 8,
-          boxShadow: '0 10px 20px -8px rgba(0,0,0,0.15)', minWidth: 240, zIndex: 50,
+          boxShadow: '0 10px 20px -8px rgba(0,0,0,0.15)', minWidth: isPhone ? 0 : 240,
+          maxWidth: isPhone ? 'calc(100vw - 16px)' : 320,
+          maxHeight: isPhone ? 'calc(100vh - 120px)' : 'min(420px, calc(100vh - 96px))',
+          overflowY: 'auto',
+          zIndex: 90,
           padding: 6,
         }}>
           {items.map((it, i) => (
@@ -552,6 +563,8 @@ function useViewport() {
 
 function ToastHost() {
   const [toasts, setToasts] = useState([]);
+  const v = useViewport();
+  const isPhone = v.isMobile;
   useEffect(() => {
     function onT(e) {
       const t = e.detail;
@@ -562,7 +575,17 @@ function ToastHost() {
     return () => window.removeEventListener('ois-toast', onT);
   }, []);
   return (
-    <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 200, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
+    <div style={{
+      position: 'fixed',
+      bottom: isPhone ? 'calc(84px + env(safe-area-inset-bottom))' : 24,
+      left: isPhone ? 8 : 'auto',
+      right: isPhone ? 8 : 24,
+      zIndex: 200,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8,
+      pointerEvents: 'none',
+    }}>
       {toasts.map(t => {
         const tones = {
           success: { bg: '#fff', fg: '#1C192E', accent: '#00C9A7', icon: 'check' },
@@ -575,7 +598,7 @@ function ToastHost() {
             background: tn.bg, color: tn.fg, padding: '12px 16px', borderRadius: 10,
             boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15), 0 4px 6px -4px rgba(0,0,0,0.1)',
             border: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', gap: 10,
-            minWidth: 280, maxWidth: 420, pointerEvents: 'auto', fontSize: 13, fontWeight: 600,
+            minWidth: isPhone ? 0 : 280, maxWidth: isPhone ? '100%' : 420, pointerEvents: 'auto', fontSize: 13, fontWeight: 600,
             borderLeft: `3px solid ${tn.accent}`,
           }}>
             <Icon name={tn.icon} size={16} color={tn.accent} />
@@ -631,6 +654,7 @@ const FACILITY = {
 
 // Risk drivers we surface across the app
 const RISK_CATEGORIES = [
+  { id: 'condition',  label: 'Change of Condition',      icon: 'activity',       tone: 'critical', count: 8 },
   { id: 'rehosp',     label: 'Transfer / Rehosp Risk',  icon: 'arrowRight',     tone: 'critical', count: 7 },
   { id: 'sepsis',     label: 'Infection / Sepsis',       icon: 'alertTriangle',  tone: 'critical', count: 4 },
   { id: 'fall',       label: 'Fall Risk',                icon: 'shield',         tone: 'high',     count: 11 },
@@ -638,7 +662,21 @@ const RISK_CATEGORIES = [
   { id: 'nutrition',  label: 'Nutrition / Hydration',    icon: 'droplet',        tone: 'watch',    count: 8 },
   { id: 'rehab',      label: 'Functional / Rehab',       icon: 'trendingDown',   tone: 'watch',    count: 6 },
   { id: 'skin',       label: 'Skin / Wound',             icon: 'heart',          tone: 'watch',    count: 5 },
-  { id: 'behavioral', label: 'Behavioral / Cognitive',   icon: 'sparkles',       tone: 'stable',   count: 3 },
+  { id: 'documentation', label: 'Documentation / QM',    icon: 'fileText',       tone: 'stable',   count: 5 },
+  { id: 'staffing',   label: 'Staffing / Communication', icon: 'users',          tone: 'watch',    count: 4 },
+];
+
+const RISK_DOMAINS = [
+  { id: 'condition', label: 'Change of Condition', short: 'Condition', action: 'Clinical Review', owner: 'Unit Manager' },
+  { id: 'rehosp', label: 'Transfer / Rehospitalization', short: 'Transfer', action: 'Provider Notification', owner: 'Charge Nurse' },
+  { id: 'sepsis', label: 'Infection / Sepsis', short: 'Infection', action: 'Assess Infection Risk', owner: 'Infection Preventionist' },
+  { id: 'fall', label: 'Fall Risk', short: 'Falls', action: 'Review Fall Precautions', owner: 'Unit Manager' },
+  { id: 'skin', label: 'Wound / Pressure Injury', short: 'Wound', action: 'Escalate Wound Concern', owner: 'Wound Care Nurse' },
+  { id: 'med', label: 'Medication Risk', short: 'Meds', action: 'Review Medications', owner: 'Consultant Pharmacist' },
+  { id: 'nutrition', label: 'Nutrition / Hydration', short: 'Nutrition', action: 'Initiate Nutrition Plan', owner: 'Dietitian' },
+  { id: 'rehab', label: 'Functional Decline / Rehab', short: 'Functional', action: 'Add to Morning Huddle', owner: 'Director of Rehabilitation' },
+  { id: 'documentation', label: 'Documentation / QM', short: 'Docs', action: 'Review Documentation Gap', owner: 'MDS Coordinator' },
+  { id: 'staffing', label: 'Staffing / Communication', short: 'Staffing', action: 'Assign to Unit Manager', owner: 'ADON' },
 ];
 
 // Watchlist cards
@@ -660,14 +698,14 @@ const RESIDENTS = [
   { id: 'r1', name: 'Harold Johnson', age: 78, sex: 'M', mrn: '0034-722', room: '312B', unit: 'East · Skilled', code: 'Full Code', risk: 'critical', score: 87, trend: 'up', dx: 'CHF exacerbation, Stage III sacral wound', admitted: '2026-04-22', initials: 'HJ', avatar: '#845EC2',
     drivers: ['rehosp', 'skin', 'nutrition'],
     issues: [
-      { id: 'i1', kind: 'vitals', severity: 'critical', title: 'BP trend: 88/52 → 84/49 over 4h', detail: 'Systolic dropped 14 pts since 02:00. HR 112. Concern for early sepsis vs. volume depletion.', source: 'AI · vitals stream', time: '2h ago' },
+      { id: 'i1', kind: 'vitals', severity: 'critical', title: 'BP trend: 88/52 → 84/49 over 4h', detail: 'Systolic dropped 14 pts since 02:00. HR 112. Concern for early sepsis vs. volume depletion.', source: 'Vitals stream', time: '2h ago' },
       { id: 'i2', kind: 'wound', severity: 'high',     title: 'Sacral wound — exudate increased', detail: 'CNA night shift documented saturated dressing × 2. Photo on file. Last MD review 3d ago.', source: 'CNA note · A. Patel', time: '5h ago' },
       { id: 'i3', kind: 'med',   severity: 'watch',    title: 'Furosemide held × 2 doses', detail: 'BP parameters per order. Provider not yet notified of held doses.', source: 'eMAR', time: '6h ago' },
     ]},
   { id: 'r2', name: 'Marjorie Bell', age: 84, sex: 'F', mrn: '0034-781', room: '218A', unit: 'West · LTC', code: 'DNR', risk: 'critical', score: 81, trend: 'up', dx: 'UTI, dementia, recurrent falls', admitted: '2026-03-04', initials: 'MB', avatar: '#FF6E6C',
     drivers: ['sepsis', 'fall'],
     issues: [
-      { id: 'i1', kind: 'vitals', severity: 'critical', title: 'Temp spike 38.9°C, qSOFA = 2', detail: 'Tachypnea 24, AMS noted. Urine cloudy. Sepsis screening positive.', source: 'AI · sepsis screen', time: '40m ago' },
+      { id: 'i1', kind: 'vitals', severity: 'critical', title: 'Temp spike 38.9°C, qSOFA = 2', detail: 'Tachypnea 24, AMS noted. Urine cloudy. Sepsis screening positive.', source: 'Sepsis screen', time: '40m ago' },
       { id: 'i2', kind: 'fall',   severity: 'high',     title: 'Witnessed fall — bathroom, no injury', detail: 'Morse score updated 65 → 80. Bed alarm reordered.', source: 'Incident · J. Okafor', time: '12h ago' },
     ]},
   { id: 'r3', name: 'Rafael Moreno', age: 71, sex: 'M', mrn: '0034-815', room: '305A', unit: 'East · Skilled', code: 'Full Code', risk: 'high', score: 68, trend: 'flat', dx: 'Post-op CABG day 6, A.fib', admitted: '2026-05-01', initials: 'RM', avatar: '#0081CF',
@@ -678,13 +716,37 @@ const RESIDENTS = [
     ]},
   { id: 'r4', name: 'Adam Linda',     age: 69, sex: 'M', mrn: '0034-772', room: '312A', unit: 'East · Skilled',  code: 'Full Code', risk: 'high', score: 64, trend: 'down', dx: 'COPD exac., DM2',                  admitted: '2026-04-29', initials: 'AL', avatar: '#FF9671', drivers: ['rehosp','med'] },
   { id: 'r5', name: 'Priscilla Owens',age: 76, sex: 'F', mrn: '0034-803', room: '221B', unit: 'West · LTC',      code: 'DNR/DNI',   risk: 'high', score: 62, trend: 'up',   dx: 'Stage IV sacral pressure injury',   admitted: '2026-02-12', initials: 'PO', avatar: '#C34A7D', drivers: ['skin','nutrition'] },
-  { id: 'r6', name: 'Gladys Howe',    age: 88, sex: 'F', mrn: '0034-829', room: '117',  unit: 'Memory Care',     code: 'DNR',       risk: 'watch',score: 49, trend: 'flat', dx: 'Advanced dementia, dysphagia',      admitted: '2025-11-20', initials: 'GH', avatar: '#67568C', drivers: ['nutrition','behavioral'] },
+  { id: 'r6', name: 'Gladys Howe',    age: 88, sex: 'F', mrn: '0034-829', room: '117',  unit: 'Memory Care',     code: 'DNR',       risk: 'watch',score: 49, trend: 'flat', dx: 'Advanced dementia, dysphagia',      admitted: '2025-11-20', initials: 'GH', avatar: '#67568C', drivers: ['nutrition','staffing'] },
   { id: 'r7', name: 'Harold Chen',    age: 73, sex: 'M', mrn: '0034-799', room: '104C', unit: 'East · Skilled',  code: 'Full Code', risk: 'watch',score: 44, trend: 'down', dx: 'Total knee replacement day 3',       admitted: '2026-05-04', initials: 'HC', avatar: '#00C9A7', drivers: ['rehab','med'] },
   { id: 'r8', name: 'Eleanor Park',   age: 81, sex: 'F', mrn: '0034-744', room: '210',  unit: 'West · LTC',      code: 'Full Code', risk: 'watch',score: 41, trend: 'flat', dx: 'Parkinson\u2019s, recurrent UTI',    admitted: '2026-01-08', initials: 'EP', avatar: '#FF6E6C', drivers: ['fall','med'] },
   { id: 'r9', name: 'Jorge Salazar',  age: 65, sex: 'M', mrn: '0034-855', room: '301B', unit: 'East · Skilled',  code: 'Full Code', risk: 'stable',score: 22, trend: 'down', dx: 'Hip fracture s/p ORIF, day 9',     admitted: '2026-04-26', initials: 'JS', avatar: '#0081CF', drivers: ['rehab'] },
   { id: 'r10',name: 'Helen Goodwin',  age: 79, sex: 'F', mrn: '0034-866', room: '215A', unit: 'West · LTC',      code: 'DNR',       risk: 'stable',score: 18, trend: 'flat', dx: 'CKD III, HTN',                       admitted: '2025-12-01', initials: 'HG', avatar: '#29BB89', drivers: [] },
-  { id: 'r11',name: 'Wendell Ortiz',  age: 70, sex: 'M', mrn: '0034-877', room: '109',  unit: 'Memory Care',     code: 'DNR',       risk: 'stable',score: 15, trend: 'flat', dx: 'Alzheimer\u2019s, behavioral plan',  admitted: '2025-10-14', initials: 'WO', avatar: '#845EC2', drivers: ['behavioral'] },
+  { id: 'r11',name: 'Wendell Ortiz',  age: 70, sex: 'M', mrn: '0034-877', room: '109',  unit: 'Memory Care',     code: 'DNR',       risk: 'stable',score: 15, trend: 'flat', dx: 'Alzheimer\u2019s, behavioral plan',  admitted: '2025-10-14', initials: 'WO', avatar: '#845EC2', drivers: ['documentation','staffing'] },
   { id: 'r12',name: 'Doris Pham',     age: 86, sex: 'F', mrn: '0034-888', room: '222',  unit: 'West · LTC',      code: 'DNR',       risk: 'stable',score: 12, trend: 'down', dx: 'Hospice eligible — comfort care',    admitted: '2025-09-22', initials: 'DP', avatar: '#FF9671', drivers: [] },
+];
+
+const OPERATIONAL_ACTIONS_SEED = [
+  { id: 'a1', residentId: 'r2', type: 'Assess Infection Risk', domain: 'sepsis', owner: 'Robert Chen', ownerRole: 'Infection Preventionist', priority: 'High', due: 'Overdue 40m', status: 'Overdue', reason: 'Sepsis screen positive, AMS, qSOFA 2, no provider response documented.', notes: 'Confirm repeat vitals and route provider update.' },
+  { id: 'a2', residentId: 'r1', type: 'Provider Notification', domain: 'rehosp', owner: 'Jenny Ortiz', ownerRole: 'Charge Nurse', priority: 'High', due: 'This shift', status: 'No Action', reason: 'BP trend down with held diuretic and wound exudate increase.', notes: 'Include code status and held eMAR doses.' },
+  { id: 'a3', residentId: 'r1', type: 'Escalate Wound Concern', domain: 'skin', owner: 'Aisha Patel', ownerRole: 'Wound Care Nurse', priority: 'High', due: 'Today 12:00', status: 'In Progress', reason: 'Sacral wound dressing saturated twice overnight.', notes: 'Photo exists; wound consult may be needed.' },
+  { id: 'a4', residentId: 'r3', type: 'Review Medications', domain: 'med', owner: 'Aanya Verma', ownerRole: 'Consultant Pharmacist', priority: 'High', due: 'Today 13:00', status: 'Assigned', reason: 'INR 3.8 with warfarin held pending confirmation.', notes: 'Need provider/pharmacy review before next dose.' },
+  { id: 'a5', residentId: 'r4', type: 'Request Vitals Recheck', domain: 'condition', owner: 'David Kim', ownerRole: 'Unit Manager', priority: 'High', due: 'This shift', status: 'Assigned', reason: 'SpO2 88% on 2L with wheeze and increased RR.', notes: 'Respiratory therapy paged; follow-up not closed.' },
+  { id: 'a6', residentId: 'r5', type: 'Initiate Nutrition Plan', domain: 'nutrition', owner: 'Sofia Rossi', ownerRole: 'Dietitian', priority: 'Moderate', due: 'Today', status: 'Assigned', reason: 'PO intake below 25% for 3 meals with wound risk.', notes: 'Review supplements and fluids.' },
+  { id: 'a7', residentId: 'r7', type: 'Add to Morning Huddle', domain: 'rehab', owner: 'David Park', ownerRole: 'Director of Rehabilitation', priority: 'Moderate', due: 'Next huddle', status: 'In Progress', reason: 'PT session shortened due to pain after TKR.', notes: 'Review pain timing before therapy.' },
+  { id: 'a8', residentId: 'r8', type: 'Review Fall Precautions', domain: 'fall', owner: 'David Kim', ownerRole: 'Unit Manager', priority: 'Moderate', due: 'Today', status: 'Completed', reason: 'Parkinsons with recurrent UTI history and medication risk.', notes: 'Precautions reviewed; continue monitoring.' },
+  { id: 'a9', residentId: 'r11', type: 'Review Documentation Gap', domain: 'documentation', owner: 'Beatrice Liu', ownerRole: 'MDS Coordinator', priority: 'Moderate', due: 'Tomorrow AM', status: 'Assigned', reason: 'Behavioral plan documentation needs reconciliation before review window.', notes: 'MDS and nursing notes need alignment.' },
+  { id: 'a10', residentId: 'r6', type: 'Assign to Unit Manager', domain: 'staffing', owner: 'Marcus Webb', ownerRole: 'ADON', priority: 'Moderate', due: 'Today', status: 'Escalated', reason: 'Dysphagia monitoring concern has no documented owner on current shift.', notes: 'ADON to assign shift owner.' },
+];
+
+const SCHEDULE_EVENTS_SEED = [
+  { id: 's1', residentId: 'r1', title: 'Care plan review', kind: 'care-team', dateLabel: 'Today', startLabel: '9:00 AM', endLabel: '9:30 AM', status: 'Scheduled', owner: 'Sarah Chen', location: 'Conference A + video', participants: ['u1','u3','u9','u11','u18'] },
+  { id: 's2', residentId: 'r2', title: 'Sepsis follow-up huddle', kind: 'huddle', dateLabel: 'Today', startLabel: '10:15 AM', endLabel: '10:30 AM', status: 'Scheduled', owner: 'Jenny Ortiz', location: 'West nurse station', participants: ['u1','u4','u8','u11'] },
+  { id: 's3', residentId: 'r5', title: 'Wound consult', kind: 'clinical', dateLabel: 'Today', startLabel: '11:00 AM', endLabel: '11:30 AM', status: 'Scheduled', owner: 'Aisha Patel', location: 'Room 221B', participants: ['u9','u11','u18'] },
+  { id: 's4', residentId: 'r1', title: 'Family conference', kind: 'family', dateLabel: 'Today', startLabel: '2:00 PM', endLabel: '3:00 PM', status: 'Scheduled', owner: 'Maria Alvarez', location: 'Family room + phone', participants: ['u1','u10','u15','u16'] },
+  { id: 's5', residentId: 'r3', title: 'Medication review', kind: 'clinical', dateLabel: 'Tomorrow', startLabel: '1:00 PM', endLabel: '1:30 PM', status: 'Scheduled', owner: 'Aanya Verma', location: 'Pharmacy review', participants: ['u12','u10','u11'] },
+  { id: 's6', residentId: 'r7', title: 'PT pain-timing review', kind: 'rehab', dateLabel: 'Tomorrow', startLabel: '10:00 AM', endLabel: '10:20 AM', status: 'Tentative', owner: 'David Park', location: 'Therapy gym', participants: ['u13','u14','u4'] },
+  { id: 's7', residentId: 'r8', title: 'Swallow study planning', kind: 'clinical', dateLabel: 'Friday', startLabel: '10:00 AM', endLabel: '10:30 AM', status: 'Scheduled', owner: 'Olivia Reed', location: 'Rehab office', participants: ['u14','u18','u11'] },
+  { id: 's8', residentId: null, title: 'Daily operations huddle', kind: 'huddle', dateLabel: 'Tomorrow', startLabel: '8:00 AM', endLabel: '8:20 AM', status: 'Scheduled', owner: 'Sarah Chen', location: 'Nursing leadership', participants: ['u1','u2','u3','u4','u5','u8','u9'] },
 ];
 
 // Care team for a resident (just store IDs)
@@ -704,7 +766,7 @@ const NOTES_SEED = {
 
 const CAREPLAN_SEED = {
   r1: [
-    { id: 'cp1', kind: 'huddle', title: 'Morning Huddle — Apr 7', participants: ['u1','u2','u3','u4','u9','u10'], time: 'Today · 07:00', summary: 'Wound nurse raised positioning compliance. AI linked to PT note from 4/5 noting refusal of repositioning q2h. Decision: wound specialist consult requested via @u10. Follow-up: Aisha to retake photo in 24h.', actions: ['Wound consult requested','Repositioning q2h re-educated','Photo recheck 24h'] },
+    { id: 'cp1', kind: 'huddle', title: 'Morning Huddle — Apr 7', participants: ['u1','u2','u3','u4','u9','u10'], time: 'Today · 07:00', summary: 'Wound nurse raised positioning compliance. PT note from 4/5 noted refusal of repositioning q2h. Decision: wound specialist consult requested via @u10. Follow-up: Aisha to retake photo in 24h.', actions: ['Wound consult requested','Repositioning q2h re-educated','Photo recheck 24h'] },
     { id: 'cp2', kind: 'call', title: 'Call with Dr. Park — nephrology follow-up', participants: ['u1','u10'], time: 'Yesterday · 14:32', duration: '8m 14s', summary: 'Discussed declining UOP and BUN/Cr trend. Plan: hold furosemide if SBP < 95, recheck BMP in AM, consider IV fluids 250cc bolus PRN. Nephrology to call back tomorrow.', actions: ['Hold furosemide if SBP<95','BMP in AM','IV bolus PRN'] },
     { id: 'cp3', kind: 'message', title: 'Care plan thread — initial admission', participants: ['u1','u11','u15'], time: 'Apr 22 · 10:14', summary: 'Initial admission goals set: stabilize CHF, advance wound healing, target d/c home with family in 4 weeks. Social services to assess home suitability.', actions: ['Social work assessment','4-wk d/c target','Family meeting scheduled'] },
   ],
@@ -718,17 +780,17 @@ function priorityResidents() {
 
 // Recent "changes" (Changes tab summary across the facility)
 const FACILITY_CHANGES = [
-  { residentId: 'r2', kind: 'sepsis',   severity: 'critical', title: 'Sepsis screen positive', detail: 'Temp 38.9°C, AMS, qSOFA 2. AI flagged 40m ago. No provider response yet.',           time: '40m ago', source: 'AI · sepsis screen' },
-  { residentId: 'r1', kind: 'vitals',   severity: 'critical', title: 'BP trending down', detail: 'SBP −14 pts in 4h, HR 112. Consider sepsis vs volume depletion.',                          time: '2h ago',  source: 'AI · vitals stream' },
+  { residentId: 'r2', kind: 'sepsis',   severity: 'critical', title: 'Sepsis screen positive', detail: 'Temp 38.9°C, AMS, qSOFA 2. Flagged 40m ago. No provider response yet.',              time: '40m ago', source: 'Sepsis screen' },
+  { residentId: 'r1', kind: 'vitals',   severity: 'critical', title: 'BP trending down', detail: 'SBP −14 pts in 4h, HR 112. Consider sepsis vs volume depletion.',                          time: '2h ago',  source: 'Vitals stream' },
   { residentId: 'r3', kind: 'lab',      severity: 'high',     title: 'INR 3.8 — supratherapeutic', detail: 'Warfarin held pending provider confirmation. Last INR 2.6 (4d ago).',             time: '1h ago',  source: 'Lab · Quest' },
-  { residentId: 'r4', kind: 'vitals',   severity: 'high',     title: 'SpO₂ 88% on 2L', detail: 'Resp rate 24, audible wheeze. Respiratory therapy paged.',                                    time: '3h ago',  source: 'AI · vitals stream' },
+  { residentId: 'r4', kind: 'vitals',   severity: 'high',     title: 'SpO₂ 88% on 2L', detail: 'Resp rate 24, audible wheeze. Respiratory therapy paged.',                                    time: '3h ago',  source: 'Vitals stream' },
   { residentId: 'r1', kind: 'wound',    severity: 'high',     title: 'Sacral wound — exudate ↑', detail: 'Saturated dressing × 2 overnight. Photo on file.',                                  time: '5h ago',  source: 'CNA note' },
   { residentId: 'r5', kind: 'nutrition',severity: 'watch',    title: 'PO intake < 25% × 3 meals', detail: 'Refusing solids, accepting fluids. Consider supplement order.',                    time: '6h ago',  source: 'eMAR' },
   { residentId: 'r2', kind: 'fall',     severity: 'high',     title: 'Witnessed fall — bathroom', detail: 'No injury. Morse 65 → 80. Bed alarm reordered.',                                   time: '12h ago', source: 'Incident report' },
   { residentId: 'r7', kind: 'rehab',    severity: 'watch',    title: 'PT session shortened', detail: 'Pain 7/10 at incision site. PRN oxycodone given, plan to retry in PM.',                 time: '14h ago', source: 'Rehab note' },
 ];
 
-Object.assign(window, { TEST_USERS, FACILITY, RISK_CATEGORIES, WATCHLISTS, RESIDENTS, CARE_TEAMS, NOTES_SEED, CAREPLAN_SEED, FACILITY_CHANGES, priorityResidents });
+Object.assign(window, { TEST_USERS, FACILITY, RISK_CATEGORIES, RISK_DOMAINS, WATCHLISTS, RESIDENTS, CARE_TEAMS, NOTES_SEED, CAREPLAN_SEED, OPERATIONAL_ACTIONS_SEED, SCHEDULE_EVENTS_SEED, FACILITY_CHANGES, priorityResidents });
 
 
 // ---- app/shell.jsx ----
@@ -736,11 +798,13 @@ Object.assign(window, { TEST_USERS, FACILITY, RISK_CATEGORIES, WATCHLISTS, RESID
 
 const NAV_PRIMARY = [
   { id: 'home',      label: 'Home',       icon: 'home' },
-  { id: 'changes',   label: 'Changes',    icon: 'activity' },
   { id: 'residents', label: 'Residents',  icon: 'users' },
-  { id: 'watchlist', label: 'Watchlist',  icon: 'eye' },
+  { id: 'watchlist', label: 'Watchlists', icon: 'eye' },
+  { id: 'actions',   label: 'Actions',    icon: 'check' },
 ];
 const NAV_SECONDARY = [
+  { id: 'changes',   label: 'Changes',        icon: 'activity' },
+  { id: 'messages',  label: 'Messages',        icon: 'message' },
   { id: 'huddle',    label: 'Huddle',          icon: 'message' },
   { id: 'schedule',  label: 'Schedule',        icon: 'calendar' },
   { id: 'reports',   label: 'Reports',         icon: 'fileText' },
@@ -754,48 +818,88 @@ const NOTIFICATIONS_SEED = [
   { id: 'n5', icon: 'users', tone: '#0081CF', title: 'Huddle scheduled', body: 'Skilled Nursing · 14:00 today', time: '4h ago' },
 ];
 
-function AppHeader({ user, onLogout, onSearch, onNav, onMenu, mobile }) {
+function AppHeader({ user, onLogout, onNav, onOpenResident, counts, mobile }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQ, setSearchQ] = useState('');
   const unread = NOTIFICATIONS_SEED.filter(n => n.unread).length;
+  const messageUnread = counts && counts.messages ? counts.messages : 0;
+  const searchResults = useMemo(() => {
+    const q = searchQ.trim().toLowerCase();
+    const pool = RESIDENTS.filter(r => {
+      if (!q) return true;
+      return r.name.toLowerCase().includes(q)
+        || r.mrn.toLowerCase().includes(q)
+        || r.room.toLowerCase().includes(q)
+        || r.unit.toLowerCase().includes(q);
+    });
+    return pool.slice(0, 6);
+  }, [searchQ]);
+
+  function openSearch() {
+    setSearchOpen(true);
+    setNotifOpen(false);
+  }
+
+  function openResidentFromSearch(id) {
+    setSearchOpen(false);
+    setSearchQ('');
+    onOpenResident(id);
+  }
+
   return (
     <header style={{
       height: 60, background: '#fff', borderBottom: '1px solid #E5E7EB',
-      display: 'flex', alignItems: 'center', padding: mobile ? '0 12px' : '0 24px', gap: mobile ? 8 : 12,
+      display: 'flex', alignItems: 'center', padding: mobile ? '0 8px' : '0 24px', gap: mobile ? 6 : 12,
       position: 'sticky', top: 0, zIndex: 30, flexShrink: 0,
     }}>
-      {mobile && (
-        <IconButton icon="list" onClick={onMenu} title="Menu" />
-      )}
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <Brand height={26} />
+      <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
+        <Brand height={mobile ? 22 : 26} />
       </div>
       <div style={{ flex: 1 }} />
 
-      {!mobile && (
-        <div style={{ position: 'relative' }}>
-          {!searchOpen ? (
-            <IconButton icon="search" title="Search" onClick={() => setSearchOpen(true)} />
-          ) : (
-            <div style={{
-              width: 320, background: '#F7F7F7', border: '1px solid #E5E7EB', borderRadius: 8, height: 38,
-              display: 'flex', alignItems: 'center', gap: 10, padding: '0 12px',
-            }}>
+      <IconButton icon="search" title="Search" onClick={openSearch} />
+      {searchOpen && (
+        <>
+          <div onClick={() => setSearchOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 45 }} />
+          <div style={{
+            position: 'fixed', top: 68, left: mobile ? 8 : 16, right: mobile ? 8 : 16, maxWidth: 680, margin: '0 auto',
+            background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12,
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)',
+            zIndex: 60, overflow: 'hidden', maxHeight: 'calc(100vh - 84px)', display: 'flex', flexDirection: 'column',
+          }}>
+            <div style={{ padding: 12, borderBottom: '1px solid #EEEEEE', display: 'flex', alignItems: 'center', gap: 10 }}>
               <Icon name="search" size={16} color="#99A1AF" />
               <input autoFocus value={searchQ} onInput={e => setSearchQ(e.target.value)}
-                onBlur={() => { if (!searchQ) setSearchOpen(false); }}
-                placeholder="Search residents, MRN, rooms…"
-                style={{ flex: 1, border: 0, outline: 0, background: 'transparent', font: '14px Inter', color: '#1C192E' }} />
-              <IconButton icon="x" size={24} onClick={() => { setSearchQ(''); setSearchOpen(false); }} />
+                placeholder="Search residents, MRN, room, unit..."
+                style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: 'transparent', font: '15px Inter', color: '#1C192E' }} />
+              <IconButton icon="x" size={28} onClick={() => { setSearchQ(''); setSearchOpen(false); }} />
             </div>
-          )}
-        </div>
+            <div style={{ overflowY: 'auto', padding: 8 }}>
+              {searchResults.map(r => (
+                <button key={r.id} onClick={() => openResidentFromSearch(r.id)} style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 8px', border: 0, background: '#fff', borderRadius: 8,
+                  cursor: 'pointer', textAlign: 'left',
+                }}>
+                  <Avatar initials={r.initials} seed={r.id} size={34} isResident />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#1C192E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+                    <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2 }}>Rm {r.room} · {r.unit} · MRN {r.mrn}</div>
+                  </div>
+                  <RiskBadge level={r.risk} score={r.score} compact />
+                </button>
+              ))}
+              {searchResults.length === 0 && (
+                <div style={{ padding: 22, textAlign: 'center', color: '#6A7282', fontSize: 13 }}>No residents found.</div>
+              )}
+            </div>
+          </div>
+        </>
       )}
-      {mobile && <IconButton icon="search" title="Search" onClick={() => emitToast('Search coming soon.', 'info')} />}
 
       <div style={{ position: 'relative' }}>
-        <IconButton icon="bell" title="Notifications" onClick={() => setNotifOpen(o => !o)} />
+        <IconButton icon="bell" title="Notifications" onClick={() => { setSearchOpen(false); setNotifOpen(o => !o); }} />
         {unread > 0 && (
           <span style={{
             position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, padding: '0 4px',
@@ -807,7 +911,9 @@ function AppHeader({ user, onLogout, onSearch, onNav, onMenu, mobile }) {
           <>
             <div onClick={() => setNotifOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
             <div style={{
-              position: 'absolute', top: 44, right: 0, width: mobile ? 'min(92vw, 360px)' : 360, maxHeight: 480, overflowY: 'auto',
+              position: 'fixed', top: 68, left: mobile ? 8 : 'auto', right: mobile ? 8 : 16,
+              width: mobile ? 'auto' : 360, maxWidth: mobile ? 'calc(100vw - 16px)' : 360,
+              maxHeight: 'calc(100vh - 84px)', overflowY: 'auto',
               background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12,
               boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)',
               zIndex: 50,
@@ -838,7 +944,23 @@ function AppHeader({ user, onLogout, onSearch, onNav, onMenu, mobile }) {
         )}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <IconButton icon="calendar" title="Schedule" onClick={() => { setNotifOpen(false); setSearchOpen(false); onNav('schedule'); }} />
+
+      <div style={{ position: 'relative' }}>
+        <IconButton icon="message" title="Messages" onClick={() => { setNotifOpen(false); setSearchOpen(false); onNav('messages'); }} />
+        {messageUnread > 0 && (
+          <span style={{
+            position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, padding: '0 4px',
+            borderRadius: 9999, background: '#845EC2', color: '#fff', fontSize: 9, fontWeight: 700,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff', pointerEvents: 'none',
+          }}>{messageUnread}</span>
+        )}
+      </div>
+
+      <button title="Profile" onClick={() => { setNotifOpen(false); setSearchOpen(false); onNav('profile'); }} style={{
+        display: 'flex', alignItems: 'center', gap: 10, border: 0, background: 'transparent',
+        cursor: 'pointer', padding: mobile ? 0 : '4px 6px', borderRadius: 8, minWidth: 0,
+      }}>
         <Avatar initials={user.initials} seed={user.id} size={34} />
         {!mobile && (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -846,14 +968,14 @@ function AppHeader({ user, onLogout, onSearch, onNav, onMenu, mobile }) {
             <span style={{ fontSize: 11, color: '#6A7282' }}>{user.role}</span>
           </div>
         )}
-        {!mobile && <IconButton icon="logout" title="Sign out" onClick={onLogout} />}
-      </div>
+      </button>
+      {!mobile && <IconButton icon="logout" title="Sign out" onClick={onLogout} />}
     </header>
   );
 }
 
 function SideNav({ active, onNav, counts }) {
-  const items = NAV_PRIMARY.map(it => it.id === 'changes' ? { ...it, badge: counts.changes } : it);
+  const items = NAV_PRIMARY.map(it => it.id === 'actions' ? { ...it, badge: counts.actions } : it);
   return (
     <aside style={{
       width: 248, background: '#fff', borderRight: '1px solid #E5E7EB',
@@ -874,19 +996,12 @@ function SideNav({ active, onNav, counts }) {
         border: '1px solid #C9EFE2', display: 'flex', flexDirection: 'column', gap: 8,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Icon name="sparkles" size={14} color="#00B295" />
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#00795E' }}>Continuity AI</span>
+          <Icon name="activity" size={14} color="#00B295" />
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#00795E' }}>Facility Status</span>
         </div>
         <div style={{ fontSize: 11, lineHeight: '16px', color: '#00795E' }}>
           117 residents · 14 active threads · 3 awaiting response
         </div>
-        <button style={{
-          marginTop: 4, padding: '8px 12px', borderRadius: 8, border: 0,
-          background: '#00C9A7', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        }} onClick={() => emitToast('AI assistant ready — ask anything.', 'info')}>
-          <Icon name="message" size={12} color="#fff" /> Ask AI
-        </button>
       </div>
     </aside>
   );
@@ -894,7 +1009,7 @@ function SideNav({ active, onNav, counts }) {
 
 function MobileDrawer({ open, active, onNav, counts, user, onLogout, onClose }) {
   if (!open) return null;
-  const items = NAV_PRIMARY.map(it => it.id === 'changes' ? { ...it, badge: counts.changes } : it);
+  const items = NAV_SECONDARY.map(it => it.id === 'messages' ? { ...it, badge: counts.messages } : it);
   return (
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, background: 'rgba(28,25,46,0.5)', zIndex: 80,
@@ -902,7 +1017,7 @@ function MobileDrawer({ open, active, onNav, counts, user, onLogout, onClose }) 
       <aside onClick={e => e.stopPropagation()} style={{
         position: 'absolute', top: 0, left: 0, bottom: 0, width: 'min(86vw, 320px)',
         background: '#fff', display: 'flex', flexDirection: 'column', padding: 16, gap: 16,
-        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflowY: 'auto',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Brand height={26} />
@@ -915,13 +1030,16 @@ function MobileDrawer({ open, active, onNav, counts, user, onLogout, onClose }) 
             <div style={{ fontSize: 11, color: '#6A7282' }}>{user.role}</div>
           </div>
         </div>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#99A1AF', letterSpacing: '0.08em' }}>FACILITY</div>
+        <button onClick={() => { onNav('profile'); onClose(); }} style={{
+          padding: '10px 12px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff',
+          color: '#1C192E', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <Icon name="user" size={16} color="#845EC2" /> Open profile & security
+        </button>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#99A1AF', letterSpacing: '0.08em' }}>MORE</div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {items.map(it => <NavItem key={it.id} item={it} active={active === it.id} onClick={() => { onNav(it.id); onClose(); }} />)}
-        </nav>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#99A1AF', letterSpacing: '0.08em' }}>WORKSPACE</div>
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {NAV_SECONDARY.map(it => <NavItem key={it.id} item={it} active={active === it.id} onClick={() => { onNav(it.id); onClose(); }} />)}
         </nav>
         <div style={{ flex: 1 }} />
         <button onClick={onLogout} style={{
@@ -936,12 +1054,12 @@ function MobileDrawer({ open, active, onNav, counts, user, onLogout, onClose }) 
   );
 }
 
-function MobileTabBar({ active, onNav, counts }) {
+function MobileTabBar({ active, onNav, onMenu, counts }) {
   const items = [
-    { id: 'home',      label: 'Home',      icon: 'home' },
-    { id: 'changes',   label: 'Changes',   icon: 'activity', badge: counts.changes },
-    { id: 'residents', label: 'Residents', icon: 'users' },
-    { id: 'watchlist', label: 'Watch',     icon: 'eye' },
+    { id: 'home',      label: 'Home',       icon: 'home' },
+    { id: 'residents', label: 'Residents',  icon: 'users' },
+    { id: 'watchlist', label: 'Watchlists', icon: 'eye' },
+    { id: 'actions',   label: 'Actions',    icon: 'check', badge: counts.actions },
   ];
   return (
     <nav style={{
@@ -954,14 +1072,23 @@ function MobileTabBar({ active, onNav, counts }) {
         const isActive = active === it.id;
         const color = isActive ? '#00B295' : '#6A7282';
         return (
-          <button key={it.id} onClick={() => onNav(it.id)} style={{
+          <button key={it.id} onClick={() => onNav(it.id)} title={it.label} style={{
             flex: 1, background: 'transparent', border: 0, cursor: 'pointer',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            padding: '8px 4px', position: 'relative',
-            color, fontFamily: 'Inter', fontSize: 11, fontWeight: 600,
+            padding: '8px 2px', position: 'relative',
+            color, fontFamily: 'Inter', fontSize: 10, fontWeight: 700,
           }}>
-            <div style={{ position: 'relative' }}>
-              <Icon name={it.icon} size={22} color={color} strokeWidth={isActive ? 2.4 : 2} />
+            <div style={{
+              position: 'relative',
+              width: 'auto',
+              height: 'auto',
+              borderRadius: 9999,
+              background: 'transparent',
+              boxShadow: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginTop: 0,
+            }}>
+              <Icon name={it.icon} size={21} color={color} strokeWidth={isActive ? 2.4 : 2} />
               {it.badge > 0 && (
                 <span style={{
                   position: 'absolute', top: -4, right: -8, minWidth: 16, height: 16, padding: '0 4px',
@@ -970,11 +1097,89 @@ function MobileTabBar({ active, onNav, counts }) {
                 }}>{it.badge}</span>
               )}
             </div>
-            <span>{it.label}</span>
+            <span style={{ whiteSpace: 'nowrap' }}>{it.label}</span>
           </button>
         );
       })}
     </nav>
+  );
+}
+
+function MenuPage({ active, onNav, counts, user, onLogout }) {
+  const items = [
+    ...NAV_SECONDARY.map(it => it.id === 'messages' ? { ...it, badge: counts.messages } : it),
+    { id: 'profile', label: 'Profile', icon: 'user' },
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <PageHeader
+        title="Menu"
+        subtitle={`${user.name} · ${user.role}`}
+      />
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+        {items.map(item => {
+          const selected = active === item.id;
+          return (
+            <button key={item.id} onClick={() => onNav(item.id)} style={{
+              width: '100%',
+              minHeight: 58,
+              border: `1px solid ${selected ? '#00C9A7' : '#E5E7EB'}`,
+              background: selected ? '#E7F5EF' : '#fff',
+              borderRadius: 10,
+              padding: '12px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              cursor: 'pointer',
+              textAlign: 'left',
+            }}>
+              <div style={{
+                width: 34,
+                height: 34,
+                borderRadius: 9,
+                background: selected ? '#fff' : '#F4F4F5',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <Icon name={item.icon} size={17} color={selected ? '#00795E' : '#6A7282'} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: selected ? '#00795E' : '#1C192E' }}>{item.label}</div>
+              </div>
+              {item.badge > 0 && (
+                <span style={{
+                  minWidth: 22, height: 22, padding: '0 6px', borderRadius: 9999,
+                  background: '#845EC2', color: '#fff', fontSize: 11, fontWeight: 800,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                }}>{item.badge}</span>
+              )}
+              <Icon name="chevronRight" size={16} color="#99A1AF" />
+            </button>
+          );
+        })}
+      </div>
+
+      <button onClick={onLogout} style={{
+        minHeight: 46,
+        border: '1px solid #E5E7EB',
+        background: '#fff',
+        borderRadius: 10,
+        padding: '10px 14px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        cursor: 'pointer',
+        color: '#1C192E',
+        fontSize: 13,
+        fontWeight: 800,
+      }}>
+        <Icon name="logout" size={16} color="#1C192E" /> Sign out
+      </button>
+    </div>
   );
 }
 
@@ -1023,7 +1228,7 @@ function PageHeader({ title, subtitle, actions, children }) {
   );
 }
 
-Object.assign(window, { AppHeader, SideNav, MobileDrawer, MobileTabBar, PageHeader });
+Object.assign(window, { AppHeader, SideNav, MobileDrawer, MobileTabBar, MenuPage, PageHeader });
 
 
 // ---- app/login.jsx ----
@@ -1154,15 +1359,28 @@ Object.assign(window, { LoginScreen });
 // ---- app/home.jsx ----
 // Home page — DON facility-level operations view
 
-function HomePage({ user, onOpenResident, onNav }) {
-  const priority = priorityResidents();
+function HomePage({ user, actions, onOpenResident, onOpenAction, onNav }) {
+  const priority = priorityResidentsWithActions(actions);
   const critical = priority.filter(r => r.risk === 'critical');
   const high     = priority.filter(r => r.risk === 'high');
-  const watch    = priority.filter(r => r.risk === 'watch');
-  const stable   = priority.filter(r => r.risk === 'stable');
+  const actionCounts = actionStatusCounts(actions);
+  const openActions = (actions || [])
+    .filter(a => a.status !== 'Completed')
+    .slice()
+    .sort((a, b) => {
+      const rank = { Overdue: 0, Escalated: 1, 'No Action': 2, Assigned: 3, 'In Progress': 4 };
+      return (rank[a.status] ?? 9) - (rank[b.status] ?? 9);
+    })
+    .slice(0, 4);
+  const domainCounts = RISK_DOMAINS.map(domain => ({
+    domain,
+    count: RESIDENTS.filter(r =>
+      (r.drivers || []).includes(domain.id) ||
+      residentEvidenceItems(r).some(item => item.domain === domain.id)
+    ).length,
+  })).filter(item => item.count > 0);
   const occPct = Math.round(FACILITY.occupied / FACILITY.beds * 100);
   const [showHuddle, setShowHuddle] = useState(false);
-  const [showAI, setShowAI] = useState(false);
   const v = useViewport();
   const isPhone = v.isMobile;
 
@@ -1179,52 +1397,33 @@ function HomePage({ user, onOpenResident, onNav }) {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', color: '#99A1AF' }}>{greeting()} · MAY 7, 2026</div>
-              <div style={{ fontSize: isPhone ? 26 : 30, fontWeight: 700, letterSpacing: '-0.02em', marginTop: 6, color: '#1C192E' }}>Hi, {user.name.split(' ')[0]}.</div>
-              <div style={{ fontSize: 13, color: '#6A7282', marginTop: 4 }}>{FACILITY.name} · {FACILITY.building}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: '#99A1AF' }}>{greeting()} · DON COMMAND CENTER</div>
+              <div style={{ fontSize: isPhone ? 25 : 30, fontWeight: 800, letterSpacing: '-0.02em', marginTop: 6, color: '#1C192E' }}>Operational Intelligence</div>
+              <div style={{ fontSize: 13, color: '#6A7282', marginTop: 4, lineHeight: '18px' }}>
+                {FACILITY.name} · persistent continuity across resident risk, evidence, action ownership, and closure.
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 8, width: isPhone ? '100%' : 'auto' }}>
               <Button variant="secondary" icon="message" style={{ flex: isPhone ? 1 : 'none' }} onClick={() => setShowHuddle(true)}>Start Huddle</Button>
-              <Button variant="lavender" icon="sparkles" style={{ flex: isPhone ? 1 : 'none' }} onClick={() => setShowAI(true)}>Ask AI</Button>
+              <Button variant="primary" icon="check" style={{ flex: isPhone ? 1 : 'none' }} onClick={() => onNav('actions')}>Open Actions</Button>
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: isPhone ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap: isPhone ? 14 : 20, borderTop: '1px solid #EEEEEE', paddingTop: 18 }}>
             <HeroStat label="Beds occupied" value={`${FACILITY.occupied} / ${FACILITY.beds}`} sub={`${occPct}% capacity`} />
-            <HeroStat label="New admits 24h" value={FACILITY.admits24h} sub="1 awaiting H&P" />
-            <HeroStat label="Discharges 24h" value={FACILITY.discharges24h} sub="0 returns" />
+            <HeroStat label="High concern" value={critical.length + high.length} sub={`${critical.length} critical · ${high.length} high`} />
+            <HeroStat label="Open actions" value={actionCounts.open} sub={`${actionCounts.overdue} overdue · ${actionCounts.escalated} escalated`} />
             <HeroStat label="Pending provider" value={FACILITY.pendingProvider} sub="2 over 4h" />
           </div>
         </div>
 
-        <Card style={{ padding: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <Icon name="sparkles" size={14} color="#52525B" />
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#52525B', letterSpacing: '0.04em' }}>OVERNIGHT BRIEF · AI</span>
-          </div>
-          <div style={{ fontSize: 13, color: '#1C192E', lineHeight: '19px', marginBottom: 14 }}>
-            <b>3 escalations</b>, <b>6 follow-ups</b>, and <b>2 awaiting nephrology</b>.
-            Highest concern: M. Bell — sepsis screen positive 40m ago.
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <BriefBullet text="Mr. Johnson · BP trend −14 pts in 4h. Wound exudate ↑." tone="critical" />
-            <BriefBullet text="Marjorie Bell · sepsis screen positive, no provider response." tone="critical" />
-            <BriefBullet text="Rafael Moreno · INR 3.8, warfarin held pending confirmation." tone="high" />
-          </div>
-          <button onClick={() => emitToast('Opening overnight thread — full context.', 'info')} style={{
-            marginTop: 14, padding: '8px 12px', borderRadius: 6, border: '1px solid #E5E7EB', width: '100%',
-            background: '#fff', color: '#1C192E', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}>
-            View full overnight thread <Icon name="chevronRight" size={12} color="#1C192E" />
-          </button>
-        </Card>
+        <OperationalCognitionPanel actions={actions} compact={isPhone} />
       </div>
 
       {/* Priority list */}
       <div>
         <SectionHeader
-          title="Today's Priority"
-          subtitle="Critical and High-risk residents only. AI keeps this list current."
+          title="Top Priority Residents"
+          subtitle="Ranked by overall risk, deterioration trend, and whether follow-through is owned."
           right={
             <div style={{ display: 'flex', gap: 8 }}>
               <Chip tone="critical" dot>{critical.length} Critical</Chip>
@@ -1233,12 +1432,12 @@ function HomePage({ user, onOpenResident, onNav }) {
           }
         />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {[...critical, ...high].map(r => (
-            <PriorityRow key={r.id} r={r} onClick={() => onOpenResident(r.id)} />
+          {priority.slice(0, 5).map(r => (
+            <OperationalResidentCard key={r.id} r={r} actions={actions} onClick={() => onOpenResident(r.id)} />
           ))}
-          {critical.length + high.length === 0 && (
+          {priority.length === 0 && (
             <Card style={{ padding: 24, textAlign: 'center', color: '#6A7282', fontSize: 13 }}>
-              No Critical or High-risk residents right now. Watch and Stable residents are tracked under the Residents tab.
+              No resident risk signals are active right now.
             </Card>
           )}
         </div>
@@ -1251,17 +1450,81 @@ function HomePage({ user, onOpenResident, onNav }) {
         </button>
       </div>
 
-      {/* Risk drivers */}
+      <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) minmax(280px, 0.75fr)', gap: 12 }}>
+        <div>
+          <SectionHeader title="Unit Risk Heatmap" subtitle="Tap a unit to narrow the resident directory." />
+          <UnitRiskHeatmap actions={actions} onSelectUnit={unit => { emitToast(`Opening residents for ${unit}.`, 'info'); onNav('residents'); }} />
+        </div>
+        <div>
+          <SectionHeader title="Open Actions" subtitle="Execution and accountability queue." />
+          <Card style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+              <ActionMiniStat label="Overdue" value={actionCounts.overdue} tone="critical" />
+              <ActionMiniStat label="Unassigned" value={actionCounts.unassigned} tone="watch" />
+              <ActionMiniStat label="Escalated" value={actionCounts.escalated} tone="high" />
+              <ActionMiniStat label="Due today" value={actionCounts.dueToday} tone="info" />
+            </div>
+            {openActions.map(action => {
+              const r = RESIDENTS.find(x => x.id === action.residentId);
+              return (
+                <button key={action.id} onClick={() => onOpenAction(action.id)} style={{
+                  border: '1px solid #E5E7EB', borderRadius: 9, padding: 10,
+                  background: '#fff', cursor: 'pointer', textAlign: 'left',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                }}>
+                  <ActionStatusBadge status={action.status} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 900, color: '#1C192E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{action.type}</div>
+                    <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2 }}>{r ? `${r.name} · Rm ${r.room}` : 'Resident'} · {action.owner}</div>
+                  </div>
+                  <Icon name="chevronRight" size={14} color="#99A1AF" />
+                </button>
+              );
+            })}
+            <Button variant="secondary" icon="check" onClick={() => onNav('actions')}>View Action Queue</Button>
+          </Card>
+        </div>
+      </div>
+
       <div>
-        <SectionHeader title="Risk Drivers" subtitle="Active risk categories across the facility. Click a category to see who's affected." />
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${isPhone ? 150 : 190}px, 1fr))`, gap: 10 }}>
-          {RISK_CATEGORIES.map(cat => <RiskCategoryCard key={cat.id} cat={cat} />)}
+        <SectionHeader title="What's New Today" subtitle="Risk domains are one unified intelligence system, not separate dashboards." />
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${isPhone ? 148 : 190}px, 1fr))`, gap: 10 }}>
+          {domainCounts.map(item => (
+            <RiskDomainSummaryCard key={item.domain.id} item={item} onClick={() => onNav('watchlist')} />
+          ))}
         </div>
       </div>
 
       {showHuddle && <HuddleModal user={user} onClose={() => setShowHuddle(false)} onOpenResident={onOpenResident} />}
-      {showAI && <AskAIPanel user={user} onClose={() => setShowAI(false)} onOpenResident={onOpenResident} onNav={onNav} />}
     </div>
+  );
+}
+
+function ActionMiniStat({ label, value, tone }) {
+  const color = tone === 'critical' ? '#B91C1C'
+    : tone === 'high' ? '#C2410C'
+    : tone === 'watch' ? '#92703A'
+    : '#67568C';
+  return (
+    <div style={{ border: '1px solid #EEEEEE', borderRadius: 8, padding: 10, background: '#FAFAFC' }}>
+      <div style={{ fontSize: 11, fontWeight: 900, color: '#6A7282' }}>{label}</div>
+      <div style={{ fontSize: 24, fontWeight: 900, color, marginTop: 2, lineHeight: 1 }}>{value}</div>
+    </div>
+  );
+}
+
+function RiskDomainSummaryCard({ item, onClick }) {
+  return (
+    <Card hoverable onClick={onClick} style={{ padding: 15, display: 'flex', flexDirection: 'column', gap: 11 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <Icon name={RISK_CATEGORIES.find(c => c.id === item.domain.id)?.icon || 'activity'} size={18} color="#52525B" />
+        <div style={{ fontSize: 24, fontWeight: 900, color: '#1C192E', lineHeight: 1 }}>{item.count}</div>
+      </div>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 900, color: '#1C192E', lineHeight: '17px' }}>{item.domain.label}</div>
+        <div style={{ fontSize: 11, color: '#6A7282', marginTop: 3 }}>residents with active signals</div>
+      </div>
+    </Card>
   );
 }
 
@@ -1391,7 +1654,7 @@ function HuddleModal({ user, onClose, onOpenResident }) {
       <ModalShell title="Huddle in Progress" subtitle={`${finalIds.length} on call · started just now`} onClose={onClose} width={680}
         footer={<>
           <Button variant="ghost" onClick={onClose}>Leave</Button>
-          <Button variant="lavender" icon="check" onClick={() => { emitToast(`Huddle ended — AI summary saved to ${agenda.length} resident records.`); onClose(); }}>End & Save Summary</Button>
+          <Button variant="lavender" icon="check" onClick={() => { emitToast(`Huddle ended — summary saved to ${agenda.length} resident records.`); onClose(); }}>End & Save Summary</Button>
         </>}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ background: '#1C192E', borderRadius: 12, padding: 16, color: '#fff', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1419,7 +1682,7 @@ function HuddleModal({ user, onClose, onOpenResident }) {
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#6A7282', marginBottom: 8 }}>AGENDA · AI CAPTURING</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#6A7282', marginBottom: 8 }}>AGENDA · LIVE CAPTURE</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {agenda.map(a => (
                 <div key={a.id} style={{ display: 'flex', gap: 10, padding: '10px 12px', background: '#F5F2FD', borderRadius: 8, fontSize: 13 }}>
@@ -1435,7 +1698,7 @@ function HuddleModal({ user, onClose, onOpenResident }) {
   }
 
   return (
-    <ModalShell title="Start Huddle" subtitle="Quick standup with on-shift care team. AI captures the agenda and posts notes to each resident." onClose={onClose} width={680}
+    <ModalShell title="Start Huddle" subtitle="Quick standup with on-shift care team. Notes and resident follow-ups stay attached to the chart." onClose={onClose} width={680}
       footer={<>
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button variant="lavender" icon="video" onClick={() => setStep('live')}>Start Now ({finalIds.length})</Button>
@@ -1446,11 +1709,11 @@ function HuddleModal({ user, onClose, onOpenResident }) {
           <Input value={topic} onChange={e => setTopic(e.target.value)} />
         </div>
         <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#6A7282', marginBottom: 6 }}>AGENDA — AI suggested from overnight events</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#6A7282', marginBottom: 6 }}>AGENDA</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
             {agenda.map(a => (
               <div key={a.id} style={{ display: 'flex', gap: 8, padding: '8px 10px', border: '1px solid #EEEEEE', borderRadius: 6, fontSize: 13, alignItems: 'center' }}>
-                <Icon name="sparkles" size={12} color="#845EC2" />
+                <Icon name="fileText" size={12} color="#845EC2" />
                 <span style={{ flex: 1 }}>{a.text}</span>
                 <IconButton icon="x" size={24} onClick={() => setAgenda(agenda.filter(x => x.id !== a.id))} />
               </div>
@@ -1493,175 +1756,1474 @@ function HuddleModal({ user, onClose, onOpenResident }) {
   );
 }
 
-// ============== ASK AI PANEL ==============
-function AskAIPanel({ user, onClose, onOpenResident, onNav }) {
-  const [messages, setMessages] = useState([
-    { role: 'ai', text: `Hi ${user.name.split(' ')[0]}, I have full context on ${FACILITY.name}. Ask me about residents, trends, staffing, or risks.` },
-  ]);
-  const [input, setInput] = useState('');
-  const [busy, setBusy] = useState(false);
-  const suggestions = [
-    'Who needs my attention before noon?',
-    'Summarize overnight events for the DON',
-    'Which residents have rising fall risk this week?',
-    'Compare today\'s priority list to yesterday',
-  ];
-  const v = useViewport();
-  const isPhone = v.isMobile;
+Object.assign(window, { HomePage });
 
-  async function send(text) {
-    const q = (text ?? input).trim();
-    if (!q || busy) return;
-    setMessages(m => [...m, { role: 'me', text: q }]);
-    setInput('');
-    setBusy(true);
-    try {
-      const ctx = `You are an AI clinical assistant for a Director of Nursing at ${FACILITY.name} (${FACILITY.occupied}/${FACILITY.beds} beds occupied). The facility has ${critical().length} critical and ${high().length} high-risk residents. Critical: ${critical().map(r=>r.name+' ('+r.dx+')').join('; ')}. Be concise (under 80 words), clinical, and direct. No emoji.`;
-      const reply = await window.claude.complete({
-        messages: [
-          { role: 'user', content: ctx + '\n\nDON asks: ' + q },
-        ],
-      });
-      setMessages(m => [...m, { role: 'ai', text: reply }]);
-    } catch (e) {
-      setMessages(m => [...m, { role: 'ai', text: 'I had trouble reaching the model. Try again in a moment.' }]);
-    } finally {
-      setBusy(false);
+
+// ---- app/agent-runtime.jsx ----
+// Markdown-driven skill registry + browser agent tool loop
+
+const RESIDENT_BASELINE_SKILL_ID = '72-hour-post-hospital-return-watch';
+const DEFAULT_SKILL_PATHS = ['skills/post_hospital_watch/SKILL.md'];
+
+const EMBEDDED_POST_HOSPITAL_WATCH_SKILL = [
+  '---',
+  'id: 72-hour-post-hospital-return-watch',
+  'name: 72-Hour Post-Hospital Return Watch',
+  'version: 1.1.0',
+  'tools:',
+  '  - fetch_resident_baseline',
+  '  - get_recent_pcc_vitals',
+  '  - read_latest_nursing_notes',
+  '---',
+  '',
+  '# 72-Hour Post-Hospital Return Watch',
+  '',
+  '## System Prompt',
+  'You are an SNF clinical intelligence agent working as decision support for licensed staff. Compare the resident current stream against that resident dynamic baseline after an acute-care return. Do not score by static thresholds alone. Return cautious clinical decision support. Do not diagnose.',
+  '',
+  '## Required Data Triggers',
+  '- post_hospital_return: Resident admitted or returned from acute hospitalization within the last 72 hours.',
+  '- vitals_deviation: Blood pressure, oxygen saturation, temperature, pulse, or respiratory rate changes from baseline.',
+  '- nursing_note_signal: Nursing or CNA documentation mentions refusal, wound drainage, altered mentation, pain, intake decline, or provider notification.',
+  '- medication_hold_or_change: eMAR shows held doses, high-risk medication changes, anticoagulant change, insulin variance, or diuretic hold.',
+  '',
+  '## Expected Output Schema',
+  '```json',
+  '{"type":"object","required":["normal","deviations","implications","recommendedActions","confidence"],"properties":{"normal":{"type":"array","items":{"type":"string"}},"deviations":{"type":"array","items":{"type":"string"}},"implications":{"type":"array","items":{"type":"string"}},"recommendedActions":{"type":"array","items":{"type":"string"}},"confidence":{"type":"string","enum":["low","medium","high"]}}}',
+  '```',
+].join('\n');
+
+function skillSlugFromPath(filePath) {
+  const parts = String(filePath || 'skill').split('/').filter(Boolean);
+  const parent = parts.length > 1 ? parts[parts.length - 2] : parts[0] || 'skill';
+  return parent.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'skill';
+}
+
+function parseSkillFrontmatter(markdown) {
+  const match = markdown.match(/^---\s*\n([\s\S]*?)\n---\s*\n?/);
+  if (!match) return { data: {}, body: markdown };
+
+  const data = {};
+  let currentKey = null;
+  match[1].split('\n').forEach(rawLine => {
+    const line = rawLine.replace(/\s+$/, '');
+    if (!line.trim()) return;
+
+    const keyMatch = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (keyMatch) {
+      currentKey = keyMatch[1];
+      const value = keyMatch[2].trim();
+      data[currentKey] = value === '' ? [] : value.replace(/^["']|["']$/g, '');
+      return;
     }
-  }
 
-  function critical() { return priorityResidents().filter(r => r.risk === 'critical'); }
-  function high() { return priorityResidents().filter(r => r.risk === 'high'); }
+    const listMatch = line.match(/^\s*-\s+(.+)$/);
+    if (listMatch && currentKey) {
+      if (!Array.isArray(data[currentKey])) data[currentKey] = [];
+      data[currentKey].push(listMatch[1].trim().replace(/^["']|["']$/g, ''));
+    }
+  });
 
-  return (
-    <ModalShell title="Ask AI" subtitle="Facility-aware assistant. Knows every resident, every change, every plan." onClose={onClose} width={640}
-      footer={<>
-        <div style={{ flex: 1, display: 'flex', gap: 8, flexDirection: isPhone ? 'column' : 'row' }}>
-          <Input placeholder="Ask about residents, trends, staffing…" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} style={{ flex: 1 }} />
-          <Button variant="lavender" icon="arrowRight" style={{ width: isPhone ? '100%' : 'auto' }} onClick={() => send()} disabled={busy}>{busy ? '…' : 'Send'}</Button>
-        </div>
-      </>}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minHeight: 360 }}>
-        {messages.map((m, i) => (
-          <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexDirection: m.role === 'me' ? 'row-reverse' : 'row' }}>
-            {m.role === 'ai'
-              ? <div style={{ width: 32, height: 32, borderRadius: 9999, background: 'linear-gradient(#845EC2 37%, #00C9A7 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name="sparkles" size={14} color="#fff" /></div>
-              : <Avatar initials={user.initials} seed={user.id} size={32} />}
-            <div style={{
-              maxWidth: '80%', padding: '10px 14px', borderRadius: 12, fontSize: 13, lineHeight: '19px',
-              background: m.role === 'me' ? '#845EC2' : '#F5F2FD',
-              color: m.role === 'me' ? '#fff' : '#1C192E',
-              whiteSpace: 'pre-wrap',
-            }}>{m.text}</div>
-          </div>
-        ))}
-        {busy && (
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <div style={{ width: 32, height: 32, borderRadius: 9999, background: 'linear-gradient(#845EC2 37%, #00C9A7 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="sparkles" size={14} color="#fff" /></div>
-            <div style={{ display: 'flex', gap: 4, padding: '12px 14px', background: '#F5F2FD', borderRadius: 12 }}>
-              {[0,1,2].map(i => <span key={i} style={{ width: 6, height: 6, borderRadius: 9999, background: '#845EC2', opacity: 0.4, animation: `ois-bounce 1.2s ${i*0.15}s infinite` }} />)}
-            </div>
-          </div>
-        )}
-        {messages.length === 1 && (
-          <div style={{ marginTop: 8 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#6A7282', marginBottom: 8, letterSpacing: '0.04em' }}>SUGGESTED</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {suggestions.map(s => (
-                <button key={s} onClick={() => send(s)} style={{
-                  textAlign: 'left', padding: '10px 12px', border: '1px solid #EEEEEE', borderRadius: 8,
-                  background: '#fff', cursor: 'pointer', fontSize: 13, color: '#1C192E', display: 'flex', alignItems: 'center', gap: 8,
-                }}>
-                  <Icon name="sparkles" size={12} color="#845EC2" />
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </ModalShell>
+  return { data, body: markdown.slice(match[0].length) };
+}
+
+function parseSkillSections(markdown) {
+  const sections = {};
+  let current = null;
+
+  markdown.split('\n').forEach(line => {
+    const heading = line.match(/^##\s+(.+?)\s*$/);
+    if (heading) {
+      current = heading[1].trim().toLowerCase();
+      sections[current] = [];
+      return;
+    }
+    if (current) sections[current].push(line);
+  });
+
+  return Object.fromEntries(
+    Object.entries(sections).map(([key, lines]) => [key, lines.join('\n').trim()])
   );
 }
 
-Object.assign(window, { HomePage });
+function parseSkillTriggers(section = '') {
+  return section
+    .split('\n')
+    .map(line => line.trim().match(/^-\s+([^:]+):\s*(.+)$/))
+    .filter(Boolean)
+    .map(match => ({ id: match[1].trim(), description: match[2].trim() }));
+}
+
+function parseSkillOutputSchema(section = '') {
+  const fenced = section.match(/```json\s*([\s\S]*?)\s*```/i);
+  const raw = fenced ? fenced[1] : section;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return { type: 'object', properties: {}, raw: raw.trim() };
+  }
+}
+
+function parseSkillMarkdown(markdown, filePath = 'SKILL.md') {
+  const { data: frontmatter, body } = parseSkillFrontmatter(markdown);
+  const sections = parseSkillSections(body);
+  const systemPrompt = sections['system prompt'] || frontmatter.system_prompt || '';
+  const requiredDataTriggers = parseSkillTriggers(
+    sections['required data triggers'] || sections['data triggers'] || ''
+  );
+  const expectedOutputSchema = parseSkillOutputSchema(
+    sections['expected output schema'] || sections['output schema'] || ''
+  );
+
+  return {
+    id: frontmatter.id || skillSlugFromPath(filePath),
+    name: frontmatter.name || frontmatter.id || skillSlugFromPath(filePath),
+    version: frontmatter.version || '0.0.0',
+    tools: Array.isArray(frontmatter.tools) ? frontmatter.tools : [],
+    systemPrompt: systemPrompt.replace(/\s+/g, ' ').trim(),
+    requiredDataTriggers,
+    expectedOutputSchema,
+    filePath,
+    rawMarkdown: markdown,
+  };
+}
+
+class SkillRegistry {
+  constructor({ skillPaths = DEFAULT_SKILL_PATHS } = {}) {
+    this.skillPaths = skillPaths;
+    this.skills = new Map();
+    this.loaded = false;
+  }
+
+  async load() {
+    if (this.loaded) return this.list();
+    const loaded = [];
+
+    for (const filePath of this.skillPaths) {
+      try {
+        const response = await fetch(filePath);
+        if (!response.ok) throw new Error(`Unable to load ${filePath}`);
+        loaded.push(this.register(parseSkillMarkdown(await response.text(), filePath)));
+      } catch {
+        loaded.push(this.register(parseSkillMarkdown(EMBEDDED_POST_HOSPITAL_WATCH_SKILL, filePath)));
+      }
+    }
+
+    this.loaded = true;
+    return loaded;
+  }
+
+  register(skill) {
+    this.skills.set(skill.id, skill);
+    return skill;
+  }
+
+  get(id) {
+    return this.skills.get(id);
+  }
+
+  list() {
+    return [...this.skills.values()];
+  }
+}
+
+const agentSkillRegistry = new SkillRegistry();
+
+function waitForAgentStep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function issueForResident(resident, kind) {
+  return (resident.issues || []).find(issue => issue.kind === kind)
+    || FACILITY_CHANGES.find(change => change.residentId === resident.id && change.kind === kind)
+    || null;
+}
+
+const AgentTools = {
+  fetch_resident_baseline: {
+    runningLabel: 'Fetching baseline from PCC',
+    completeLabel: 'Baseline loaded',
+    description: 'Resident-specific profile, diagnosis, room, code status, and known risk domains.',
+    async execute({ residentId }) {
+      const resident = RESIDENTS.find(r => r.id === residentId);
+      if (!resident) throw new Error(`Unknown resident: ${residentId}`);
+      const drivers = (resident.drivers || []).map(id => RISK_CATEGORIES.find(c => c.id === id)).filter(Boolean);
+      return {
+        resident: {
+          id: resident.id,
+          name: resident.name,
+          mrn: resident.mrn,
+          location: `Rm ${resident.room} - ${resident.unit}`,
+          codeStatus: resident.code,
+          diagnoses: resident.dx,
+          admitted: resident.admitted,
+        },
+        baseline: [
+          `${resident.name.split(' ')[0]}'s baseline is anchored to ${resident.dx}.`,
+          `Current code status: ${resident.code}.`,
+          drivers.length ? `Recurring risk domains: ${drivers.map(d => d.label).join(', ')}.` : 'No active recurring risk domain beyond routine monitoring.',
+        ],
+      };
+    },
+  },
+  get_recent_pcc_vitals: {
+    runningLabel: 'Reading recent PCC vitals',
+    completeLabel: 'Vitals stream loaded',
+    description: 'Recent BP, pulse, temperature, oxygen, and respiratory trend signals.',
+    async execute({ residentId }) {
+      const resident = RESIDENTS.find(r => r.id === residentId);
+      const vitalIssue = resident ? issueForResident(resident, 'vitals') || issueForResident(resident, 'sepsis') : null;
+      if (!resident) throw new Error(`Unknown resident: ${residentId}`);
+
+      if (/spo|oxygen|o2|wheeze/i.test(`${vitalIssue?.title || ''} ${vitalIssue?.detail || ''}`)) {
+        return {
+          source: vitalIssue.source,
+          latest: vitalIssue.title,
+          readings: [
+            { time: '06:00', bp: '116/68', hr: 92, spo2: 93, rr: 20 },
+            { time: '08:00', bp: '110/64', hr: 104, spo2: 88, rr: 24 },
+          ],
+        };
+      }
+
+      if (/temp|qsofa|sepsis/i.test(`${vitalIssue?.title || ''} ${vitalIssue?.detail || ''}`)) {
+        return {
+          source: vitalIssue.source,
+          latest: vitalIssue.title,
+          readings: [
+            { time: '06:40', temp: '38.9 C', hr: 108, rr: 24, mentation: 'AMS noted' },
+          ],
+        };
+      }
+
+      if (vitalIssue) {
+        return {
+          source: vitalIssue.source,
+          latest: vitalIssue.title,
+          readings: [
+            { time: '02:00', bp: '98/60', hr: 96, spo2: 94, rr: 18 },
+            { time: '06:00', bp: '88/52', hr: 112, spo2: 91, rr: 20 },
+            { time: '08:00', bp: '84/49', hr: 114, spo2: 90, rr: 22 },
+          ],
+        };
+      }
+
+      return {
+        source: 'PCC vitals',
+        latest: 'No acute vital deviation in the current feed',
+        readings: [{ time: '08:00', bp: '118/70', hr: 78, spo2: 96, rr: 16 }],
+      };
+    },
+  },
+  read_latest_nursing_notes: {
+    runningLabel: 'Reading latest nursing notes',
+    completeLabel: 'Nursing notes loaded',
+    description: 'Narrative note signals from nursing, CNA, wound care, and rehab.',
+    async execute({ residentId }) {
+      const resident = RESIDENTS.find(r => r.id === residentId);
+      if (!resident) throw new Error(`Unknown resident: ${residentId}`);
+      const seeded = NOTES_SEED[residentId] || [];
+      const issueNotes = (resident.issues || []).slice(0, 3).map(issue => ({
+        id: issue.id,
+        time: issue.time,
+        user: issue.source,
+        body: issue.detail,
+      }));
+      return {
+        notes: seeded.length ? seeded.slice(0, 5) : issueNotes,
+      };
+    },
+  },
+};
+
+function planAgentToolCalls(skill) {
+  const allowed = new Set(skill.tools || []);
+  const triggers = (skill.requiredDataTriggers || []).map(t => `${t.id} ${t.description}`.toLowerCase());
+  const plan = [];
+
+  if (allowed.has('fetch_resident_baseline') || triggers.some(t => /baseline|hospital|return/.test(t))) {
+    plan.push('fetch_resident_baseline');
+  }
+  if (allowed.has('get_recent_pcc_vitals') || triggers.some(t => /vitals|oxygen|blood pressure|temperature|pulse/.test(t))) {
+    plan.push('get_recent_pcc_vitals');
+  }
+  if (allowed.has('read_latest_nursing_notes') || triggers.some(t => /note|nursing|cna|wound|refusal|mentation|pain/.test(t))) {
+    plan.push('read_latest_nursing_notes');
+  }
+
+  return plan.length ? plan : Object.keys(AgentTools);
+}
+
+function summarizeToolResult(toolName, result) {
+  if (toolName === 'fetch_resident_baseline') return `${result.resident.name} baseline plus code status loaded.`;
+  if (toolName === 'get_recent_pcc_vitals') return result.latest || 'Recent vitals loaded.';
+  if (toolName === 'read_latest_nursing_notes') return `${(result.notes || []).length} recent notes loaded.`;
+  return 'Evidence loaded.';
+}
+
+function normalizeAgentAssessment(skill, resident, evidence) {
+  const baseline = evidence.fetch_resident_baseline?.baseline || [];
+  const vitals = evidence.get_recent_pcc_vitals?.readings || [];
+  const latestVital = vitals[vitals.length - 1] || {};
+  const notes = evidence.read_latest_nursing_notes?.notes || [];
+  const primaryIssue = (resident.issues && resident.issues[0]) || FACILITY_CHANGES.find(c => c.residentId === resident.id);
+  const codeStatus = evidence.fetch_resident_baseline?.resident?.codeStatus || resident.code;
+  const vitalSummary = Object.entries(latestVital)
+    .map(([key, value]) => `${key} ${value}`)
+    .join(', ');
+  const noteSummary = notes[0] ? notes[0].body : 'No nursing narrative signal was available.';
+
+  return {
+    skillId: skill.id,
+    skillName: skill.name,
+    status: 'complete',
+    normal: baseline.length ? baseline : [`Baseline loaded for ${resident.name}.`, `Code status: ${codeStatus}.`],
+    deviations: [
+      primaryIssue ? `${primaryIssue.title}: ${primaryIssue.detail}` : 'No acute deviation identified in current facility feed.',
+      vitalSummary ? `Latest vital stream: ${vitalSummary}.` : noteSummary,
+    ],
+    implications: [
+      'This pattern may represent a meaningful baseline shift and should be verified by licensed staff before escalation.',
+      `Code status is ${codeStatus}; include it in any provider handoff.`,
+    ],
+    recommendedActions: [
+      'Repeat focused vitals and verify the narrative signal with the charge nurse.',
+      'Bundle baseline, vitals, notes, and code status before provider outreach.',
+    ],
+    confidence: primaryIssue && notes.length ? 'medium' : 'low',
+  };
+}
+
+function makeAgentStep(status, label, detail, toolName) {
+  return {
+    id: `${Date.now()}-${Math.random()}`,
+    status,
+    label,
+    detail,
+    toolName,
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  };
+}
+
+async function invokeAgentSkill(skillId, input, options = {}) {
+  const residentId = input.residentId || input.resident?.id;
+  return runResidentAgentSkill({ skillId, residentId, input, onStep: options.onStep, stepDelay: options.stepDelay });
+}
+
+async function evaluateResidentBaselineWithSkill(resident, options = {}) {
+  return runResidentAgentSkill({
+    skillId: RESIDENT_BASELINE_SKILL_ID,
+    residentId: resident.id,
+    input: { residentId: resident.id },
+    onStep: options.onStep,
+    stepDelay: options.stepDelay,
+  });
+}
+
+async function runResidentAgentSkill({ skillId = RESIDENT_BASELINE_SKILL_ID, residentId, input = {}, onStep, stepDelay = 220 }) {
+  await agentSkillRegistry.load();
+  const skill = agentSkillRegistry.get(skillId);
+  const resident = RESIDENTS.find(r => r.id === residentId);
+  if (!skill) throw new Error(`Unknown skill: ${skillId}`);
+  if (!resident) throw new Error(`Unknown resident: ${residentId}`);
+
+  const steps = [];
+  const evidence = {};
+  const emit = (status, label, detail, toolName) => {
+    const step = makeAgentStep(status, label, detail, toolName);
+    steps.push(step);
+    onStep && onStep(step, [...steps]);
+    return step;
+  };
+
+  emit('running', `Triggered ${skill.name}`, `${resident.name} matched ${skill.requiredDataTriggers.length} markdown data triggers.`);
+  await waitForAgentStep(stepDelay);
+
+  const plan = planAgentToolCalls(skill);
+  emit('running', 'Planning tool calls', `Selected ${plan.join(', ')} from SKILL.md instructions.`);
+  await waitForAgentStep(stepDelay);
+
+  for (const toolName of plan) {
+    const tool = AgentTools[toolName];
+    if (!tool) continue;
+    emit('running', tool.runningLabel, tool.description, toolName);
+    await waitForAgentStep(stepDelay);
+    evidence[toolName] = await tool.execute({ residentId, ...input[toolName] });
+    emit('complete', tool.completeLabel, summarizeToolResult(toolName, evidence[toolName]), toolName);
+    await waitForAgentStep(Math.max(90, stepDelay / 2));
+  }
+
+  const vitalText = JSON.stringify(evidence.get_recent_pcc_vitals || {});
+  const analysisLabel = /spo2":\s*(8|9[01])|oxygen|o2|wheeze/i.test(vitalText)
+    ? 'Analyzing recent O2 drops'
+    : 'Analyzing baseline deviation';
+  emit('running', analysisLabel, 'Combining baseline, vitals, and note evidence against the expected output schema.');
+  await waitForAgentStep(stepDelay);
+
+  const assessment = normalizeAgentAssessment(skill, resident, evidence);
+  emit('complete', 'Risk Assessment Complete', `Generated ${assessment.confidence}-confidence decision support for licensed review.`);
+  return { skill, evidence, assessment, steps };
+}
+
+function AgentExecutionLog({ steps = [], title = 'Agent Execution Trace', subtitle, compact = false, framed = true }) {
+  const body = (
+    <div style={{
+      padding: framed ? (compact ? 12 : 14) : 0,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: compact ? 8 : 10,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: compact ? 13 : 15, fontWeight: 900, color: '#1C192E' }}>{title}</div>
+          {subtitle && <div style={{ fontSize: 12, color: '#6A7282', marginTop: 3, lineHeight: '17px' }}>{subtitle}</div>}
+        </div>
+        <Chip tone={steps.some(s => s.status === 'running') ? 'pending' : 'signed'} dot>
+          {steps.some(s => s.status === 'running') ? 'Running' : 'Ready'}
+        </Chip>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: compact ? 6 : 8 }}>
+        {(steps.length ? steps : [makeAgentStep('running', 'Waiting for skill trigger', 'The agent will show each tool call here.')]).map((step, index) => {
+          const complete = step.status === 'complete';
+          const failed = step.status === 'error';
+          const color = failed ? '#E53E3E' : complete ? '#29BB89' : '#845EC2';
+          return (
+            <div key={step.id || index} style={{
+              display: 'grid',
+              gridTemplateColumns: '24px minmax(0, 1fr)',
+              gap: 9,
+              alignItems: 'flex-start',
+            }}>
+              <div style={{
+                width: 24, height: 24, borderRadius: 9999,
+                background: complete ? '#E7F5EF' : failed ? '#FDECEC' : '#F5F2FD',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Icon name={complete ? 'check' : failed ? 'alertTriangle' : 'clock'} size={13} color={color} />
+              </div>
+              <div style={{ minWidth: 0, paddingBottom: compact ? 2 : 5, borderBottom: index === steps.length - 1 ? 0 : '1px solid #F4F4F5' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: '#1C192E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: compact ? 'nowrap' : 'normal' }}>{step.label}</div>
+                  {!compact && <div style={{ fontSize: 10, color: '#99A1AF', flexShrink: 0 }}>{step.time}</div>}
+                </div>
+                {!compact && <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2, lineHeight: '16px' }}>{step.detail}</div>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  if (!framed) return body;
+  return <Card style={{ padding: 0, overflow: 'hidden', borderLeft: '4px solid #845EC2' }}>{body}</Card>;
+}
+
+Object.assign(window, {
+  RESIDENT_BASELINE_SKILL_ID,
+  DEFAULT_SKILL_PATHS,
+  SkillRegistry,
+  agentSkillRegistry,
+  parseSkillMarkdown,
+  AgentTools,
+  runResidentAgentSkill,
+  invokeAgentSkill,
+  evaluateResidentBaselineWithSkill,
+  AgentExecutionLog,
+});
+
+
+// ---- app/operations.jsx ----
+// Operational intelligence layer — resident risk, actions, continuity thread
+
+const ACTION_STATUS_TONES = {
+  'No Action': 'critical',
+  Assigned: 'pending',
+  'In Progress': 'info',
+  Overdue: 'critical',
+  Completed: 'signed',
+  Escalated: 'high',
+  Reviewed: 'stable',
+  'Monitoring Continued': 'watch',
+};
+
+function riskLabelForResident(r) {
+  if (r.risk === 'critical' || r.risk === 'high') return 'High';
+  if (r.risk === 'watch') return 'Moderate';
+  return 'Low';
+}
+
+function riskToneForResident(r) {
+  if (r.risk === 'critical') return 'critical';
+  if (r.risk === 'high') return 'high';
+  if (r.risk === 'watch') return 'watch';
+  return 'stable';
+}
+
+function trendLabelForResident(r) {
+  if (r.trend === 'up') return 'worsening';
+  if (r.trend === 'down') return 'improving';
+  return 'stable';
+}
+
+function domainById(id) {
+  return RISK_DOMAINS.find(d => d.id === id) || RISK_DOMAINS[0];
+}
+
+function domainForIssue(issue) {
+  if (!issue) return 'condition';
+  const map = {
+    sepsis: 'sepsis',
+    vitals: 'condition',
+    wound: 'skin',
+    med: 'med',
+    lab: 'med',
+    fall: 'fall',
+    nutrition: 'nutrition',
+    rehab: 'rehab',
+  };
+  return map[issue.kind] || 'condition';
+}
+
+function residentActions(actions, residentId) {
+  return (actions || []).filter(a => a.residentId === residentId);
+}
+
+function residentActionStatus(r, actions) {
+  const list = residentActions(actions, r.id);
+  if (!list.length) return 'No Action';
+  if (list.some(a => a.status === 'Overdue')) return 'Overdue';
+  if (list.some(a => a.status === 'Escalated')) return 'Escalated';
+  if (list.some(a => a.status === 'No Action')) return 'No Action';
+  if (list.some(a => a.status === 'In Progress')) return 'In Progress';
+  if (list.some(a => a.status === 'Assigned')) return 'Assigned';
+  if (list.every(a => a.status === 'Completed')) return 'Completed';
+  return list[0].status;
+}
+
+function actionStatusCounts(actions) {
+  const counts = { overdue: 0, unassigned: 0, escalated: 0, dueToday: 0, open: 0, completed: 0 };
+  (actions || []).forEach(a => {
+    if (a.status === 'Overdue') counts.overdue += 1;
+    if (a.status === 'No Action') counts.unassigned += 1;
+    if (a.status === 'Escalated') counts.escalated += 1;
+    if (/today|shift|overdue/i.test(a.due)) counts.dueToday += 1;
+    if (a.status === 'Completed') counts.completed += 1;
+    else counts.open += 1;
+  });
+  return counts;
+}
+
+function priorityResidentsWithActions(actions) {
+  const order = { critical: 0, high: 1, watch: 2, stable: 3 };
+  return [...RESIDENTS].sort((a, b) => {
+    const statusRank = { Overdue: 0, Escalated: 1, 'No Action': 2, Assigned: 3, 'In Progress': 4, Completed: 5, Reviewed: 6 };
+    const aStatus = residentActionStatus(a, actions);
+    const bStatus = residentActionStatus(b, actions);
+    return (order[a.risk] - order[b.risk])
+      || ((statusRank[aStatus] ?? 9) - (statusRank[bStatus] ?? 9))
+      || b.score - a.score;
+  });
+}
+
+function residentEvidenceItems(r) {
+  const issueEvidence = (r.issues || []).map(issue => ({
+    id: issue.id,
+    domain: domainForIssue(issue),
+    title: issue.title,
+    detail: issue.detail,
+    source: issue.source,
+    time: issue.time,
+    severity: issue.severity,
+  }));
+  const noteEvidence = (NOTES_SEED[r.id] || []).slice(0, 3).map(note => ({
+    id: note.id,
+    domain: /wound|dressing|exudate/i.test(note.body) ? 'skin' : /held|dose|furosemide/i.test(note.body) ? 'med' : 'condition',
+    title: 'Nursing note signal',
+    detail: note.body,
+    source: 'Nursing note',
+    time: note.time,
+    severity: 'watch',
+  }));
+  return [...issueEvidence, ...noteEvidence];
+}
+
+function residentTimelineEvents(r, actions) {
+  const issues = (r.issues || []).slice(0, 3).map((issue, i) => ({
+    id: `issue-${issue.id}`,
+    when: i === 0 ? 'Today' : issue.time,
+    title: issue.title,
+    detail: issue.detail,
+  }));
+  const actionEvents = residentActions(actions, r.id).slice(0, 3).map(action => ({
+    id: `action-${action.id}`,
+    when: action.due,
+    title: `${action.status}: ${action.type}`,
+    detail: `${action.owner} owns this follow-through.`,
+  }));
+  return [
+    { id: 'baseline', when: 'Baseline', title: r.dx, detail: `Code status: ${r.code}.` },
+    ...issues,
+    ...actionEvents,
+  ];
+}
+
+function suggestedActionForResident(r) {
+  const domainId = (r.drivers && r.drivers[0]) || domainForIssue((r.issues || [])[0]);
+  const domain = domainById(domainId);
+  return {
+    type: domain.action,
+    domain: domain.id,
+    ownerRole: domain.owner,
+    priority: riskLabelForResident(r),
+    due: riskLabelForResident(r) === 'High' ? 'This shift' : 'Today',
+    reason: `${domain.label} is active for ${r.name}; follow-through needs an accountable owner.`,
+  };
+}
+
+function ActionStatusBadge({ status }) {
+  return <Chip tone={ACTION_STATUS_TONES[status] || 'todo'} dot>{status}</Chip>;
+}
+
+function DomainChip({ domainId, label }) {
+  const domain = domainById(domainId);
+  return <Chip tone="todo">{label || domain.short}</Chip>;
+}
+
+function OperationalResidentCard({ r, actions, onClick, focusDomain }) {
+  const status = residentActionStatus(r, actions);
+  const evidence = residentEvidenceItems(r).filter(item => !focusDomain || item.domain === focusDomain);
+  const drivers = focusDomain
+    ? evidence.slice(0, 3).map(item => item.title)
+    : (r.drivers || []).slice(0, 4).map(id => domainById(id).short);
+  const tone = RISK[r.risk] || RISK.watch;
+  return (
+    <Card hoverable onClick={onClick} style={{ padding: 0, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'stretch' }}>
+        <div style={{ width: 5, background: tone.dot }} />
+        <div style={{ flex: 1, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <Avatar initials={r.initials} seed={r.id} size={38} isResident />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 15, fontWeight: 900, color: '#1C192E' }}>{r.name}</div>
+                <RiskBadge level={r.risk} score={r.score} compact />
+              </div>
+              <div style={{ fontSize: 12, color: '#6A7282', marginTop: 2 }}>Room {r.room} · {r.unit}</div>
+            </div>
+            <ActionStatusBadge status={status} />
+          </div>
+          <div style={{ fontSize: 13, color: '#1C192E', lineHeight: '18px', fontWeight: 700 }}>
+            {riskLabelForResident(r)} · {trendLabelForResident(r)} over 24-48h
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {(drivers.length ? drivers : ['No active driver beyond routine monitoring']).slice(0, 4).map((driver, i) => (
+              <div key={i} style={{ display: 'flex', gap: 7, fontSize: 12, color: '#6A7282', lineHeight: '17px' }}>
+                <span style={{ width: 5, height: 5, borderRadius: 9999, background: tone.dot, marginTop: 6, flexShrink: 0 }} />
+                <span>{driver}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {(r.drivers || []).slice(0, 4).map(id => <DomainChip key={id} domainId={id} />)}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function UnitRiskHeatmap({ actions, onSelectUnit }) {
+  const units = ['East · Skilled', 'West · LTC', 'Memory Care'];
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+      {units.map(unit => {
+        const residents = RESIDENTS.filter(r => r.unit === unit);
+        const high = residents.filter(r => ['critical','high'].includes(r.risk)).length;
+        const overdue = residents.filter(r => residentActionStatus(r, actions) === 'Overdue').length;
+        const level = high > 1 || overdue ? 'High' : high ? 'Moderate' : 'Stable';
+        const color = level === 'High' ? '#E53E3E' : level === 'Moderate' ? '#E9C05F' : '#29BB89';
+        return (
+          <button key={unit} onClick={() => onSelectUnit(unit)} style={{
+            minWidth: 0, border: `1px solid ${color}`, background: '#fff', borderRadius: 10,
+            padding: '12px 10px', textAlign: 'left', cursor: 'pointer',
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 900, color: '#1C192E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{unit}</div>
+            <div style={{ color, fontSize: 15, fontWeight: 900, marginTop: 4 }}>{level}</div>
+            <div style={{ fontSize: 11, color: '#6A7282', marginTop: 3 }}>{high} high · {overdue} overdue</div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function OperationalCognitionPanel({ resident, actions, compact }) {
+  const [step, setStep] = useState(0);
+  const steps = [
+    'Observing clinical changes, handoffs, and open work.',
+    'Structuring risk drivers around resident continuity threads.',
+    'Checking whether high-risk changes have accountable owners.',
+    'Preserving context for huddle, escalation, and closure.',
+  ];
+  useEffect(() => {
+    const timer = setInterval(() => setStep(s => (s + 1) % steps.length), 2200);
+    return () => clearInterval(timer);
+  }, []);
+  const target = resident || priorityResidentsWithActions(actions)[0];
+  return (
+    <Card style={{ padding: compact ? 12 : 14, borderLeft: '4px solid #67568C', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <div style={{ width: 34, height: 34, borderRadius: 10, background: '#F5F2FD', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="sparkles" size={16} color="#67568C" />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 900, color: '#1C192E' }}>Operational Cognition Layer</div>
+          <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px', marginTop: 2 }}>{steps[step]}</div>
+        </div>
+        <Chip tone="info" dot>Live</Chip>
+      </div>
+      {target && (
+        <div style={{ padding: 10, background: '#FAFAFC', borderRadius: 8, border: '1px solid #EEEEEE' }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: '#67568C', letterSpacing: '0.05em' }}>CURRENT CONTEXT</div>
+          <div style={{ fontSize: 13, color: '#1C192E', fontWeight: 800, marginTop: 4 }}>{target.name} · {residentActionStatus(target, actions)}</div>
+          <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px', marginTop: 3 }}>{suggestedActionForResident(target).reason}</div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function ContinuityThreadPanel({ r, actions, onOpenAction }) {
+  const timeline = residentTimelineEvents(r, actions);
+  return (
+    <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div>
+        <div style={{ fontSize: 15, fontWeight: 900, color: '#1C192E' }}>Continuity Thread</div>
+        <div style={{ fontSize: 12, color: '#6A7282', marginTop: 3, lineHeight: '17px' }}>
+          Persistent operational memory for communication, decisions, escalations, AI observations, and closure.
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {timeline.map((event, i) => (
+          <div key={event.id} style={{ display: 'grid', gridTemplateColumns: '18px minmax(0, 1fr)', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <span style={{ width: 9, height: 9, borderRadius: 9999, background: i === timeline.length - 1 ? '#67568C' : '#D1D5DC', marginTop: 4 }} />
+              {i < timeline.length - 1 && <span style={{ width: 1, flex: 1, background: '#E5E7EB', marginTop: 4 }} />}
+            </div>
+            <div style={{ paddingBottom: 10 }}>
+              <div style={{ fontSize: 11, color: '#99A1AF', fontWeight: 900 }}>{event.when}</div>
+              <div style={{ fontSize: 13, color: '#1C192E', fontWeight: 800, marginTop: 2 }}>{event.title}</div>
+              <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px', marginTop: 2 }}>{event.detail}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {residentActions(actions, r.id).map(action => (
+        <button key={action.id} onClick={() => onOpenAction && onOpenAction(action.id)} style={{
+          border: '1px solid #E5E7EB', background: '#fff', borderRadius: 8, padding: 10,
+          display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', cursor: 'pointer',
+        }}>
+          <Icon name="check" size={14} color="#00795E" />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, fontWeight: 900, color: '#1C192E' }}>{action.type}</div>
+            <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2 }}>{action.owner} · {action.status}</div>
+          </div>
+          <Icon name="chevronRight" size={14} color="#99A1AF" />
+        </button>
+      ))}
+    </Card>
+  );
+}
+
+function EvidenceSummaryPanel({ r }) {
+  const grouped = residentEvidenceItems(r).reduce((acc, item) => {
+    acc[item.domain] = acc[item.domain] || [];
+    acc[item.domain].push(item);
+    return acc;
+  }, {});
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {Object.keys(grouped).map(domainId => (
+        <Card key={domainId} style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 900, color: '#1C192E' }}>{domainById(domainId).label}</div>
+            <DomainChip domainId={domainId} />
+          </div>
+          {grouped[domainId].map(item => (
+            <div key={item.id} style={{ display: 'flex', gap: 8, fontSize: 12, color: '#6A7282', lineHeight: '17px' }}>
+              <span style={{ width: 6, height: 6, borderRadius: 9999, background: (RISK[item.severity] || RISK.watch).dot, marginTop: 6 }} />
+              <span><b style={{ color: '#1C192E' }}>{item.title}</b> · {item.detail} <span style={{ color: '#99A1AF' }}>({item.source} · {item.time})</span></span>
+            </div>
+          ))}
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function SuggestedActionPanel({ r, actions, onAssign, onOpenAction }) {
+  const suggestion = suggestedActionForResident(r);
+  const [notes, setNotes] = useState('');
+  const open = residentActions(actions, r.id).filter(a => a.status !== 'Completed');
+  return (
+    <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12, borderLeft: '4px solid #00C9A7' }}>
+      <div>
+        <div style={{ fontSize: 15, fontWeight: 900, color: '#1C192E' }}>Suggested Action</div>
+        <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px', marginTop: 3 }}>AI converts the interpreted risk into accountable follow-through. Humans still decide.</div>
+      </div>
+      <div style={{ padding: 12, border: '1px solid #E5E7EB', borderRadius: 10, background: '#FAFAFC', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <DomainChip domainId={suggestion.domain} />
+          <Chip tone={suggestion.priority === 'High' ? 'critical' : 'watch'}>{suggestion.priority}</Chip>
+          <Chip tone="todo">{suggestion.due}</Chip>
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 900, color: '#1C192E' }}>{suggestion.type}</div>
+        <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px' }}>Suggested owner: <b>{suggestion.ownerRole}</b></div>
+        <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px' }}>{suggestion.reason}</div>
+        <textarea value={notes} onInput={e => setNotes(e.target.value)} placeholder="Add handoff notes..." style={{
+          minHeight: 70, border: '1px solid #E5E7EB', borderRadius: 8, padding: 10,
+          font: '13px Inter', resize: 'vertical', outline: 0, color: '#1C192E',
+        }} />
+        <Button variant="primary" icon="check" onClick={() => onAssign && onAssign(r.id, { ...suggestion, notes })}>Assign & Track</Button>
+      </div>
+      {open.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: '#52525B', letterSpacing: '0.06em' }}>OPEN FOLLOW-THROUGH</div>
+          {open.map(action => (
+            <button key={action.id} onClick={() => onOpenAction && onOpenAction(action.id)} style={{
+              border: '1px solid #E5E7EB', background: '#fff', borderRadius: 8, padding: 10,
+              display: 'flex', gap: 10, alignItems: 'center', textAlign: 'left', cursor: 'pointer',
+            }}>
+              <ActionStatusBadge status={action.status} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 900, color: '#1C192E' }}>{action.type}</div>
+                <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2 }}>{action.owner} · {action.due}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+Object.assign(window, {
+  ACTION_STATUS_TONES,
+  riskLabelForResident,
+  riskToneForResident,
+  trendLabelForResident,
+  domainById,
+  domainForIssue,
+  residentActions,
+  residentActionStatus,
+  actionStatusCounts,
+  priorityResidentsWithActions,
+  residentEvidenceItems,
+  residentTimelineEvents,
+  suggestedActionForResident,
+  ActionStatusBadge,
+  DomainChip,
+  OperationalResidentCard,
+  UnitRiskHeatmap,
+  OperationalCognitionPanel,
+  ContinuityThreadPanel,
+  EvidenceSummaryPanel,
+  SuggestedActionPanel,
+});
+
+
+// ---- app/ai.jsx ----
+// AI workspace — proactive clinical driver + resident-aware assistant
+
+function residentCareTeam(residentId) {
+  const ids = CARE_TEAMS[residentId] || CARE_TEAMS.r1 || [];
+  return ids.map(id => TEST_USERS.find(u => u.id === id)).filter(Boolean);
+}
+
+function residentPrimaryIssue(r) {
+  return (r.issues && r.issues[0]) || FACILITY_CHANGES.find(c => c.residentId === r.id) || null;
+}
+
+function pendingSkillAssessment(r) {
+  const skillName = (agentSkillRegistry.get(RESIDENT_BASELINE_SKILL_ID) || {}).name || '72-Hour Post-Hospital Return Watch';
+  return {
+    skillId: RESIDENT_BASELINE_SKILL_ID,
+    skillName,
+    status: 'evaluating',
+    normal: [`Evaluating ${r.name}'s current data against the resident baseline.`],
+    deviations: ['Skill evaluation in progress.'],
+    implications: ['Waiting for multidimensional assessment.'],
+    recommendedActions: ['Review the latest chart evidence while the skill completes.'],
+    confidence: 'pending',
+  };
+}
+
+function nextActionsForResident(r) {
+  const issue = residentPrimaryIssue(r);
+  const actions = [];
+  if (r.risk === 'critical') actions.push('Notify charge nurse and DON for same-shift review.');
+  if (issue && issue.kind === 'vitals') actions.push('Repeat focused vitals and compare to resident baseline before provider outreach.');
+  if (issue && issue.kind === 'wound') actions.push('Ask wound nurse to confirm dressing status and whether care plan needs revision.');
+  if (issue && issue.kind === 'med') actions.push('Route medication variance to provider/pharmacy with eMAR evidence.');
+  if (issue && issue.kind === 'rehab') actions.push('Ask rehab lead whether refusal is pain, fatigue, cognition, or clinical decline.');
+  if (issue && issue.kind === 'nutrition') actions.push('Ask dietary/RD to review meal intake, fluids, weight, and supplement options.');
+  if (!actions.length) actions.push('Continue baseline monitoring and wait for a meaningful deviation before escalating.');
+  actions.push('If human team chooses an intervention, save outcome as a workflow pattern for future skill tuning.');
+  return actions;
+}
+
+function proactiveQueue() {
+  return priorityResidents().slice(0, 5).map(r => {
+    const issue = residentPrimaryIssue(r);
+    return {
+      resident: r,
+      issue,
+      action: nextActionsForResident(r)[0],
+    };
+  });
+}
+
+function matchCareTeamMember(text, residentId) {
+  const q = text.toLowerCase();
+  return residentCareTeam(residentId).find(u => {
+    const first = u.name.split(' ')[0].toLowerCase();
+    const last = u.name.split(' ').slice(-1)[0].toLowerCase();
+    return q.includes(u.name.toLowerCase()) || q.includes(first) || q.includes(last) || q.includes((u.short || '').toLowerCase()) || q.includes(u.role.toLowerCase());
+  });
+}
+
+function isConversationRequest(text) {
+  const q = text.toLowerCase();
+  return ['message', 'chat', 'thread', 'discuss', 'talk to', 'open conversation', 'start conversation', 'ask '].some(x => q.includes(x));
+}
+
+function AIAssistantPage({ user, residentId, onOpenResident, onOpenChat, onNav }) {
+  const taggedResident = residentId ? RESIDENTS.find(r => r.id === residentId) : null;
+  const queue = proactiveQueue();
+  const heroResident = taggedResident || (queue[0] && queue[0].resident);
+  const [input, setInput] = useState('');
+  const [baselineAssessment, setBaselineAssessment] = useState(() => taggedResident ? pendingSkillAssessment(taggedResident) : null);
+  const [agentRun, setAgentRun] = useState({ status: 'idle', steps: [], assessment: null });
+  const [messages, setMessages] = useState([
+    {
+      role: 'ai',
+      text: taggedResident
+        ? `${taggedResident.name} is tagged. I can explain the baseline shift, recommend next actions, or open a tagged conversation with anyone on the care team.`
+        : `I am watching resident baselines, deviations, risk implications, and care-team workflow patterns for ${FACILITY.name}. Ask what needs action next.`,
+    },
+  ]);
+
+  const team = taggedResident ? residentCareTeam(taggedResident.id) : [];
+
+  useEffect(() => {
+    let cancelled = false;
+    const target = taggedResident || heroResident;
+    if (!target) {
+      setBaselineAssessment(null);
+      setAgentRun({ status: 'idle', steps: [], assessment: null });
+      return;
+    }
+
+    if (taggedResident) setBaselineAssessment(pendingSkillAssessment(taggedResident));
+    setAgentRun({ status: 'running', steps: [], assessment: null });
+
+    runResidentAgentSkill({
+      skillId: RESIDENT_BASELINE_SKILL_ID,
+      residentId: target.id,
+      onStep: (step, steps) => {
+        if (!cancelled) setAgentRun(s => ({ ...s, status: 'running', steps }));
+      },
+    }).then(run => {
+      if (cancelled) return;
+      setAgentRun({ status: 'complete', steps: run.steps, assessment: run.assessment, skill: run.skill });
+      if (taggedResident) setBaselineAssessment(run.assessment);
+    }).catch(error => {
+      if (cancelled) return;
+      const step = { id: 'agent-error', status: 'error', label: 'Agent run failed', detail: error.message, time: 'now' };
+      setAgentRun({ status: 'error', steps: [step], assessment: null });
+      if (taggedResident) setBaselineAssessment(pendingSkillAssessment(taggedResident));
+    });
+
+    return () => { cancelled = true; };
+  }, [taggedResident ? `tagged-${taggedResident.id}` : heroResident ? `facility-${heroResident.id}` : 'none']);
+
+  function addMessage(role, text) {
+    setMessages(m => [...m, { role, text }]);
+  }
+
+  function send(text) {
+    const q = (text || input).trim();
+    if (!q) return;
+    addMessage('me', q);
+    setInput('');
+
+    if (taggedResident && isConversationRequest(q)) {
+      const member = matchCareTeamMember(q, taggedResident.id);
+      if (member) {
+        onOpenChat(taggedResident, member);
+        addMessage('ai', `Opened a conversation with ${member.name}. ${taggedResident.name} remains tagged, and I included the active baseline deviation plus recommended next step.`);
+        return;
+      }
+      addMessage('ai', `I can open a tagged conversation for ${taggedResident.name}. Try a name or role from the care team: ${team.map(u => `${u.name} (${u.short})`).join(', ')}.`);
+      return;
+    }
+
+    if (taggedResident) {
+      const assessment = baselineAssessment || pendingSkillAssessment(taggedResident);
+      const action = (assessment.recommendedActions && assessment.recommendedActions[0]) || 'Confirm findings with the care team.';
+      addMessage('ai', `${taggedResident.name}: ${assessment.skillName} shows ${assessment.deviations[0]} ${assessment.implications[0]} Recommended next action: ${action}`);
+      return;
+    }
+
+    const top = queue[0];
+    addMessage('ai', `Top proactive item: ${top.resident.name}. Signal: ${top.issue ? top.issue.title : top.resident.dx}. Recommended driver action: ${top.action}`);
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <PageHeader
+        title="AI Command"
+        subtitle={taggedResident ? `Resident context active · ${taggedResident.name} is tagged` : 'Proactive work queue from PCC signals, resident baselines, and care-team patterns.'}
+        actions={[
+          taggedResident && <Button key="profile" variant="secondary" icon="user" onClick={() => onOpenResident(taggedResident.id)}>Open Profile</Button>,
+        ].filter(Boolean)}
+      />
+
+      <AgentCommandBanner queue={queue} taggedResident={taggedResident} assessment={baselineAssessment} onOpenResident={onOpenResident} />
+      <AgentExecutionLog
+        steps={agentRun.steps}
+        title="Agent Work Log"
+        subtitle={heroResident ? `${heroResident.name} - markdown skill registry plus autonomous tool calls.` : 'Waiting for a resident trigger.'}
+      />
+
+      {taggedResident ? (
+        <ResidentAICard r={taggedResident} baseline={baselineAssessment || pendingSkillAssessment(taggedResident)} team={team} onOpenChat={onOpenChat} />
+      ) : (
+        <FacilityAIDriver queue={queue} onOpenResident={onOpenResident} />
+      )}
+
+      <AgentOperatingLoop />
+
+      <Card style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid #EEEEEE', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 800 }}>Command AI</div>
+            <div style={{ fontSize: 12, color: '#6A7282', marginTop: 2 }}>
+              {taggedResident ? `${taggedResident.name} stays tagged in this conversation.` : 'Ask about priorities, patterns, risks, or what to do next.'}
+            </div>
+          </div>
+        </div>
+        <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 320, overflowY: 'auto', background: '#FAFAFA' }}>
+          {messages.map((m, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: m.role === 'me' ? 'flex-end' : 'flex-start' }}>
+              <div style={{
+                maxWidth: '86%', padding: '10px 12px', borderRadius: 12,
+                background: m.role === 'me' ? '#845EC2' : '#fff',
+                color: m.role === 'me' ? '#fff' : '#1C192E',
+                border: m.role === 'me' ? 0 : '1px solid #E5E7EB',
+                fontSize: 13, lineHeight: '18px',
+              }}>{m.text}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ padding: 12, borderTop: '1px solid #EEEEEE', display: 'flex', gap: 8, flexDirection: 'column' }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {(taggedResident
+              ? ['What changed from baseline?', `Message ${team[0]?.name.split(' ')[0] || 'the nurse'} about this`, 'What should the care team do next?']
+              : ['Who needs action before noon?', 'What patterns are repeating?', 'Which skill should be created next?']
+            ).map(s => (
+              <button key={s} onClick={() => send(s)} style={{
+                border: '1px solid #E5E7EB', background: '#fff', borderRadius: 9999, padding: '7px 10px',
+                font: '600 12px Inter', color: '#52525B', cursor: 'pointer',
+              }}>{s}</button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Input placeholder={taggedResident ? `Ask about ${taggedResident.name} or say "message Dr. Cole"` : 'Ask what needs action next...'} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} style={{ flex: 1 }} />
+            <Button variant="lavender" icon="send" onClick={() => send()}>Send</Button>
+          </div>
+        </div>
+      </Card>
+
+      <SkillLearningCard />
+    </div>
+  );
+}
+
+function AgentCommandBanner({ queue, taggedResident, assessment, onOpenResident }) {
+  const target = taggedResident || (queue[0] && queue[0].resident);
+  const issue = taggedResident ? residentPrimaryIssue(taggedResident) : queue[0] && queue[0].issue;
+  const nextAction = taggedResident && assessment && assessment.recommendedActions
+    ? assessment.recommendedActions[0]
+    : target
+      ? nextActionsForResident(target)[0]
+      : 'Continue baseline monitoring.';
+  return (
+    <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, borderLeft: '4px solid #845EC2' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <div style={{ width: 42, height: 42, borderRadius: 12, background: '#F5F2FD', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Icon name="sparkles" size={20} color="#845EC2" />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 16, fontWeight: 900, color: '#1C192E' }}>Next work item</div>
+          <div style={{ fontSize: 13, lineHeight: '19px', color: '#1C192E', marginTop: 5 }}>
+            {target ? `${target.name}: ${issue ? issue.title : target.dx}` : 'No active work item.'}
+          </div>
+          <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px', marginTop: 4 }}>
+            {nextAction}
+          </div>
+        </div>
+        {target && <RiskBadge level={target.risk} score={target.score} compact />}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))', gap: 8 }}>
+        <AiMiniStat label="Baseline shifts" value={FACILITY_CHANGES.length} icon="activity" />
+        <AiMiniStat label="Same-shift decisions" value={priorityResidents().filter(r => ['critical','high'].includes(r.risk)).length} icon="alertTriangle" />
+        <AiMiniStat label="Skills learning" value="3" icon="fileText" />
+      </div>
+      {target && (
+        <Button variant="secondary" icon="user" onClick={() => onOpenResident(target.id)}>Open Work Item</Button>
+      )}
+    </Card>
+  );
+}
+
+function AiMiniStat({ label, value, icon }) {
+  return (
+    <div style={{ padding: 12, border: '1px solid #EEEEEE', borderRadius: 8, background: '#fff', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <Icon name={icon} size={16} color="#845EC2" />
+      <div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: '#1C192E', lineHeight: 1 }}>{value}</div>
+        <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2 }}>{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function FacilityAIDriver({ queue, onOpenResident }) {
+  const statusMap = ['Now', 'Next', 'Before noon', 'This shift', 'Watch'];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <SectionHeader title="Proactive Queue" subtitle="AI-initiated work ordered by risk, trend, and workflow timing." />
+      {queue.map(item => (
+        <Card key={item.resident.id} hoverable onClick={() => onOpenResident(item.resident.id)} style={{ padding: 14, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <Avatar initials={item.resident.initials} seed={item.resident.id} size={42} isResident />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800 }}>{item.resident.name}</div>
+                <div style={{ fontSize: 12, color: '#6A7282', marginTop: 2 }}>Rm {item.resident.room} · {item.resident.unit}</div>
+              </div>
+              <RiskBadge level={item.resident.risk} score={item.resident.score} compact />
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+              <Chip tone={item.resident.risk} dot>{statusMap[queue.indexOf(item)] || 'Queued'}</Chip>
+              <Chip tone="todo">{item.issue ? item.issue.source : 'Baseline'}</Chip>
+            </div>
+            <div style={{ fontSize: 13, lineHeight: '18px', color: '#1C192E', marginTop: 10, fontWeight: 700 }}>{item.issue ? item.issue.title : item.resident.dx}</div>
+            <div style={{ fontSize: 12, lineHeight: '17px', color: '#6A7282', marginTop: 4 }}>{item.action}</div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function AgentOperatingLoop() {
+  const stages = [
+    { icon: 'fileText', title: 'PCC Digest', body: 'vitals, eMAR, notes, labs, wounds' },
+    { icon: 'activity', title: 'Baseline Compare', body: 'resident-specific normal range' },
+    { icon: 'alertTriangle', title: 'Risk Shift', body: 'decline, transfer, sepsis, fall, wound' },
+    { icon: 'users', title: 'Human Decision', body: 'team accepts, edits, or rejects plan' },
+    { icon: 'refresh', title: 'Skill Update', body: 'trigger, response, outcome pattern' },
+  ];
+  return (
+    <Card style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div>
+        <div style={{ fontSize: 15, fontWeight: 900, color: '#1C192E' }}>Agent Loop</div>
+        <div style={{ fontSize: 12, color: '#6A7282', marginTop: 3 }}>Every recommendation stays tied to evidence, owner, decision, and outcome.</div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 }}>
+        {stages.map((s, i) => (
+          <div key={s.title} style={{ border: '1px solid #E5E7EB', borderRadius: 8, padding: 10, background: i === 2 ? '#FFF3EF' : '#fff' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <Icon name={s.icon} size={15} color={i === 2 ? '#FF6E6C' : '#845EC2'} />
+              <div style={{ fontSize: 12, fontWeight: 900, color: '#1C192E' }}>{s.title}</div>
+            </div>
+            <div style={{ fontSize: 11, color: '#6A7282', lineHeight: '15px', marginTop: 6 }}>{s.body}</div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function ResidentAICard({ r, baseline, team, onOpenChat }) {
+  const actions = baseline.recommendedActions || [];
+  const statusLabel = baseline.status === 'evaluating'
+    ? 'Evaluating'
+    : baseline.status === 'fallback'
+      ? 'Fallback'
+      : `Confidence ${baseline.confidence}`;
+  return (
+    <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Avatar initials={r.initials} seed={r.id} size={46} isResident />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: 15 }}>{r.name}</div>
+          <div style={{ fontSize: 12, color: '#6A7282' }}>{baseline.skillName} · MRN {r.mrn} · Rm {r.room}</div>
+        </div>
+        <Chip tone={baseline.status === 'fallback' ? 'watch' : 'info'}>{statusLabel}</Chip>
+        <RiskBadge level={r.risk} score={r.score} compact />
+      </div>
+      <AiEvidenceBlock title="Baseline Model" items={baseline.normal} />
+      <AiEvidenceBlock title="Meaningful Change" items={baseline.deviations} />
+      <AiEvidenceBlock title="Likely Implication" items={baseline.implications} />
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 800, color: '#52525B', letterSpacing: '0.05em', marginBottom: 8 }}>NEXT HUMAN DECISION</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {actions.map((a, i) => (
+            <div key={i} style={{ display: 'flex', gap: 8, fontSize: 13, color: '#1C192E', lineHeight: '18px' }}>
+              <Icon name={i === 0 ? 'arrowRight' : 'check'} size={14} color={i === 0 ? '#845EC2' : '#29BB89'} />
+              <span>{a}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingTop: 2 }}>
+        {team.slice(0, 5).map(u => (
+          <button key={u.id} onClick={() => onOpenChat(r, u)} style={{
+            display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
+            border: '1px solid #E5E7EB', background: '#fff', borderRadius: 9999, padding: '7px 10px',
+            font: '600 12px Inter', color: '#1C192E', cursor: 'pointer',
+          }}>
+            <Avatar initials={u.initials} seed={u.id} size={24} />
+            {u.short}
+          </button>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function AiEvidenceBlock({ title, items }) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, fontWeight: 800, color: '#52525B', letterSpacing: '0.05em', marginBottom: 6 }}>{title.toUpperCase()}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {items.map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, color: '#6A7282', lineHeight: '17px' }}>
+            <span style={{ width: 5, height: 5, borderRadius: 9999, background: '#845EC2', marginTop: 6, flexShrink: 0 }} />
+            <span>{item}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SkillLearningCard() {
+  return (
+    <Card style={{ padding: 16, background: '#fff' }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <div style={{ width: 34, height: 34, borderRadius: 10, background: '#E7F5EF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Icon name="fileText" size={16} color="#00795E" />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#1C192E' }}>Skill learning loop</div>
+          <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px', marginTop: 4 }}>
+            When the team accepts, edits, or rejects an AI recommendation, the pattern is saved as a reusable facility workflow: trigger, PCC evidence, intervention, outcome, and escalation policy.
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+            <Chip tone="signed">72h return watch</Chip>
+            <Chip tone="signed">Sepsis deviation review</Chip>
+            <Chip tone="signed">Wound exudate escalation</Chip>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+Object.assign(window, { AIAssistantPage });
 
 
 // ---- app/residents.jsx ----
 // Residents list + Resident profile with tabs
 
-function ResidentsList({ onOpen }) {
+function ResidentsList({ onOpen, actions }) {
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all');
-  const [view, setView] = useState('grid');
+  const [unit, setUnit] = useState('all');
+  const [risk, setRisk] = useState('all');
+  const [domain, setDomain] = useState('all');
+  const [actionStatus, setActionStatus] = useState('all');
+  const [filterOpen, setFilterOpen] = useState(false);
   const v = useViewport();
   const isPhone = v.isMobile;
+  const units = ['all', ...Array.from(new Set(RESIDENTS.map(r => r.unit)))];
+  const riskOptions = ['all', 'High', 'Moderate', 'Low'];
+  const actionOptions = ['all', 'No Action', 'Assigned', 'In Progress', 'Overdue', 'Escalated', 'Completed'];
+  const activeFilterCount = [unit, risk, domain, actionStatus].filter(x => x !== 'all').length;
 
-  const filtered = RESIDENTS.filter(r => {
-    if (filter !== 'all' && r.risk !== filter) return false;
-    if (!search) return true;
+  const filtered = priorityResidentsWithActions(actions).filter(r => {
     const q = search.toLowerCase();
-    return r.name.toLowerCase().includes(q) || r.mrn.includes(q) || r.room.toLowerCase().includes(q) || r.unit.toLowerCase().includes(q);
+    const matchesSearch = !q || r.name.toLowerCase().includes(q) || r.mrn.includes(q) || r.room.toLowerCase().includes(q) || r.unit.toLowerCase().includes(q);
+    const matchesUnit = unit === 'all' || r.unit === unit;
+    const matchesRisk = risk === 'all' || riskLabelForResident(r) === risk;
+    const matchesDomain = domain === 'all'
+      || (r.drivers || []).includes(domain)
+      || residentEvidenceItems(r).some(item => item.domain === domain);
+    const matchesAction = actionStatus === 'all' || residentActionStatus(r, actions) === actionStatus;
+    return matchesSearch && matchesUnit && matchesRisk && matchesDomain && matchesAction;
   });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: isPhone ? 20 : 28 }}>
       <PageHeader
         title="Residents"
-        subtitle={`${RESIDENTS.length} residents across ${FACILITY.name} · ${FACILITY.building}`}
+        subtitle="Searchable resident directory. Filters narrow the same unified risk and action model shown on Home."
         actions={[
-          <Button key="filter" variant="secondary" icon="filter" onClick={() => emitToast('Advanced filters coming soon — use the search and risk pills below.', 'info')}>Filter</Button>,
           <Button key="add" variant="primary" icon="plus" onClick={() => emitToast('Add Resident flow coming soon — wire to PCC admit endpoint.', 'info')}>Add Resident</Button>,
         ]}
       />
 
-      <Card style={{ padding: isPhone ? 12 : 16, display: 'flex', alignItems: 'stretch', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 260px', minWidth: isPhone ? '100%' : 240 }}>
-          <Input icon="search" placeholder="Search by name, MRN, room, unit…" value={search} onChange={e => setSearch(e.target.value)} />
+      <Card style={{ padding: isPhone ? 12 : 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+          <Input icon="search" placeholder="Search by name, MRN, room, unit…" value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+          <Button variant="secondary" icon="filter" onClick={() => setFilterOpen(true)} style={{ minWidth: isPhone ? 104 : 124 }}>
+            Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}
+          </Button>
         </div>
-        <div style={{ minWidth: 0, maxWidth: '100%', overflowX: 'auto' }}>
-          <SegmentedControl
-            value={filter} onChange={setFilter}
-            options={[
-              { id: 'all', label: 'All' },
-              { id: 'critical', label: 'Critical', tone: 'critical' },
-              { id: 'high', label: 'High', tone: 'high' },
-              { id: 'watch', label: 'Watch', tone: 'watch' },
-              { id: 'stable', label: 'Stable', tone: 'stable' },
-            ]}
-          />
-        </div>
-        <div style={{ display: 'flex', border: '1px solid #E5E7EB', borderRadius: 6, overflow: 'hidden', marginLeft: isPhone ? 'auto' : 0 }}>
-          <ViewBtn icon="list" active={view === 'list'} onClick={() => setView('list')} />
-          <ViewBtn icon="grid" active={view === 'grid'} onClick={() => setView('grid')} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 12, color: '#6A7282' }}>
+            Showing <b style={{ color: '#1C192E' }}>{filtered.length}</b> of {RESIDENTS.length}
+          </div>
+          <ActiveFilterSummary unit={unit} risk={risk} domain={domain} actionStatus={actionStatus} />
+          {activeFilterCount > 0 && (
+            <button onClick={() => { setUnit('all'); setRisk('all'); setDomain('all'); setActionStatus('all'); }} style={{
+              border: 0, background: 'transparent', color: '#845EC2', font: '800 12px Inter', cursor: 'pointer', padding: 0,
+            }}>Clear filters</button>
+          )}
         </div>
       </Card>
-
-      {view === 'list' ? (
-        <Card style={{ padding: 0, overflow: isPhone ? 'hidden' : 'auto' }}>
-          <table class="ois-stack" style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Inter', minWidth: isPhone ? 0 : 840 }}>
-            <thead>
-              <tr style={{ fontSize: 11, color: '#6A7282', fontWeight: 700, textAlign: 'left', letterSpacing: '0.04em', background: '#FAFAFA' }}>
-                <th style={th}>RESIDENT</th>
-                <th style={th}>MRN</th>
-                <th style={th}>LOCATION</th>
-                <th style={th}>CODE STATUS</th>
-                <th style={th}>RISK</th>
-                <th style={th}>TREND</th>
-                <th style={th}>DRIVERS</th>
-                <th style={th}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(r => <ResidentRow key={r.id} r={r} onClick={() => onOpen(r.id)} />)}
-            </tbody>
-          </table>
-        </Card>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${isPhone ? 240 : 280}px, 1fr))`, gap: 12 }}>
-          {filtered.map(r => <ResidentGridCard key={r.id} r={r} onClick={() => onOpen(r.id)} />)}
-        </div>
+      {filterOpen && (
+        <ResidentFilterSheet
+          unit={unit} risk={risk} domain={domain} actionStatus={actionStatus}
+          units={units} riskOptions={riskOptions} actionOptions={actionOptions}
+          onUnit={setUnit} onRisk={setRisk} onDomain={setDomain} onActionStatus={setActionStatus}
+          onClose={() => setFilterOpen(false)}
+          onClear={() => { setUnit('all'); setRisk('all'); setDomain('all'); setActionStatus('all'); }}
+        />
       )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${isPhone ? 260 : 320}px, 1fr))`, gap: 12 }}>
+        {filtered.map(r => <OperationalResidentCard key={r.id} r={r} actions={actions} onClick={() => onOpen(r.id)} />)}
+      </div>
+      {filtered.length === 0 && (
+        <Card style={{ padding: 28, textAlign: 'center', fontSize: 13, color: '#6A7282' }}>
+          No residents match the current filters.
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function ActiveFilterSummary({ unit, risk, domain, actionStatus }) {
+  const active = [
+    unit !== 'all' && unit,
+    risk !== 'all' && risk,
+    domain !== 'all' && domainById(domain).short,
+    actionStatus !== 'all' && actionStatus,
+  ].filter(Boolean);
+  if (!active.length) return <div style={{ fontSize: 12, color: '#99A1AF' }}>No filters applied</div>;
+  return (
+    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+      {active.map(item => <Chip key={item} tone="todo">{item}</Chip>)}
+    </div>
+  );
+}
+
+function ResidentFilterSheet({ unit, risk, domain, actionStatus, units, riskOptions, actionOptions, onUnit, onRisk, onDomain, onActionStatus, onClose, onClear }) {
+  const v = useViewport();
+  const isPhone = v.isMobile;
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(28,25,46,0.34)', zIndex: 80, display: 'flex', alignItems: isPhone ? 'flex-end' : 'center', justifyContent: 'center', padding: isPhone ? 0 : 18 }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: isPhone ? '100%' : 480,
+        maxWidth: isPhone ? '100%' : 'calc(100vw - 36px)',
+        background: '#fff',
+        borderRadius: isPhone ? '16px 16px 0 0' : 14,
+        border: '1px solid #E5E7EB',
+        boxShadow: '0 20px 40px rgba(28,25,46,0.18)',
+        overflow: 'hidden',
+      }}>
+        <div style={{ padding: 16, borderBottom: '1px solid #EEEEEE', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: '#1C192E' }}>Filter Residents</div>
+            <div style={{ fontSize: 12, color: '#6A7282', marginTop: 2 }}>Use structured filters instead of sideways scrolling chips.</div>
+          </div>
+          <IconButton icon="x" onClick={onClose} />
+        </div>
+        <div style={{ padding: 16, display: 'grid', gridTemplateColumns: isPhone ? '1fr' : '1fr 1fr', gap: 12 }}>
+          <FilterSelect label="Unit" value={unit} onChange={onUnit} options={units.map(u => ({ id: u, label: u === 'all' ? 'All units' : u }))} />
+          <FilterSelect label="Risk level" value={risk} onChange={onRisk} options={riskOptions.map(x => ({ id: x, label: x === 'all' ? 'All risk levels' : x }))} />
+          <FilterSelect label="Risk domain" value={domain} onChange={onDomain} options={[{ id: 'all', label: 'All domains' }, ...RISK_DOMAINS.map(d => ({ id: d.id, label: d.label }))]} />
+          <FilterSelect label="Action status" value={actionStatus} onChange={onActionStatus} options={actionOptions.map(x => ({ id: x, label: x === 'all' ? 'All action statuses' : x }))} />
+        </div>
+        <div style={{ padding: 16, borderTop: '1px solid #EEEEEE', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <Button variant="secondary" onClick={onClear}>Clear</Button>
+          <Button variant="primary" onClick={onClose}>Apply Filters</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FilterSelect({ label, value, onChange, options }) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span style={{ fontSize: 11, fontWeight: 900, color: '#6A7282', letterSpacing: '0.06em' }}>{label.toUpperCase()}</span>
+      <select value={value} onChange={e => onChange(e.target.value)} style={{
+        width: '100%',
+        height: 42,
+        border: '1px solid #E5E7EB',
+        borderRadius: 8,
+        background: '#fff',
+        color: '#1C192E',
+        font: '700 13px Inter',
+        padding: '0 10px',
+        outline: 0,
+      }}>
+        {options.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function FilterRow({ label, options, value, onChange }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '72px minmax(0, 1fr)', gap: 8, alignItems: 'center' }}>
+      <div style={{ fontSize: 11, fontWeight: 900, color: '#6A7282', letterSpacing: '0.05em' }}>{label.toUpperCase()}</div>
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
+        {options.map(option => {
+          const active = value === option.id;
+          return (
+            <button key={option.id} onClick={() => onChange(option.id)} style={{
+              flex: '0 0 auto',
+              minHeight: 34,
+              borderRadius: 9999,
+              border: `1px solid ${active ? '#00C9A7' : '#E5E7EB'}`,
+              background: active ? '#E7F5EF' : '#fff',
+              color: active ? '#00795E' : '#52525B',
+              padding: '7px 11px',
+              font: '800 12px Inter',
+              cursor: 'pointer',
+            }}>
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1670,8 +3232,13 @@ const th = { padding: '12px 18px', fontWeight: 700 };
 const td = { padding: '14px 18px', fontSize: 14, color: '#1C192E', verticalAlign: 'middle' };
 
 function SegmentedControl({ value, onChange, options }) {
+  const v = useViewport();
+  const isPhone = v.isMobile;
   return (
-    <div style={{ display: 'flex', gap: 4, padding: 4, background: '#F5F2FD', borderRadius: 8 }}>
+    <div style={{
+      display: 'flex', gap: 4, padding: 4, background: '#F5F2FD', borderRadius: 8,
+      flexWrap: isPhone ? 'wrap' : 'nowrap', width: '100%', maxWidth: '100%',
+    }}>
       {options.map(o => {
         const active = o.id === value;
         return (
@@ -1681,10 +3248,12 @@ function SegmentedControl({ value, onChange, options }) {
             color: active ? '#1C192E' : '#6A7282',
             fontSize: 13, fontWeight: 600, cursor: 'pointer',
             boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-            display: 'flex', alignItems: 'center', gap: 6,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            flex: isPhone ? '1 1 calc(50% - 4px)' : '0 0 auto',
+            minWidth: 0,
           }}>
             {o.tone && <span style={{ width: 7, height: 7, borderRadius: 9999, background: RISK[o.tone].dot }} />}
-            {o.label}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.label}</span>
           </button>
         );
       })}
@@ -1705,7 +3274,6 @@ function ViewBtn({ icon, active, onClick }) {
 
 function ResidentRow({ r, onClick }) {
   const [hover, setHover] = useState(false);
-  const tone = RISK[r.risk];
   return (
     <tr onClick={onClick}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
@@ -1722,13 +3290,6 @@ function ResidentRow({ r, onClick }) {
       <td style={{ ...td, fontFamily: 'JetBrains Mono', fontSize: 12, color: '#6A7282' }}>{r.mrn}</td>
       <td style={td}><div style={{ fontWeight: 600 }}>Rm {r.room}</div><div style={{ fontSize: 12, color: '#6A7282' }}>{r.unit}</div></td>
       <td style={td}><Chip tone={r.code === 'Full Code' ? 'info' : r.code.startsWith('DNR') ? 'voided' : 'todo'}>{r.code}</Chip></td>
-      <td style={td}><RiskBadge level={r.risk} score={r.score} /></td>
-      <td style={td}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: r.trend === 'up' ? '#E53E3E' : r.trend === 'down' ? '#29BB89' : '#6A7282' }}>
-          <Icon name={r.trend === 'up' ? 'trendingUp' : r.trend === 'down' ? 'trendingDown' : 'arrowRight'} size={14} color={r.trend === 'up' ? '#E53E3E' : r.trend === 'down' ? '#29BB89' : '#6A7282'} />
-          {r.trend === 'up' ? 'Rising' : r.trend === 'down' ? 'Improving' : 'Flat'}
-        </div>
-      </td>
       <td style={td}>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {(r.drivers || []).slice(0, 2).map(id => {
@@ -1744,10 +3305,9 @@ function ResidentRow({ r, onClick }) {
 }
 
 function ResidentGridCard({ r, onClick }) {
-  const tone = RISK[r.risk];
   return (
     <Card hoverable onClick={onClick} style={{ padding: 0, overflow: 'hidden' }}>
-      <div style={{ height: 4, background: tone.dot }} />
+      <div style={{ height: 4, background: '#E5E7EB' }} />
       <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Avatar initials={r.initials} seed={r.id} size={44} isResident />
@@ -1758,7 +3318,7 @@ function ResidentGridCard({ r, onClick }) {
         </div>
         <div style={{ fontSize: 13, color: '#6A7282', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.dx}</div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <RiskBadge level={r.risk} score={r.score} />
+          <Chip tone={r.code === 'Full Code' ? 'info' : r.code.startsWith('DNR') ? 'voided' : 'todo'}>{r.code}</Chip>
           <code style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#6A7282' }}>{r.mrn}</code>
         </div>
       </div>
@@ -1768,7 +3328,7 @@ function ResidentGridCard({ r, onClick }) {
 
 // ============== RESIDENT PROFILE ==============
 
-function ResidentProfile({ residentId, onBack, onOpenChat, onOpenIssue }) {
+function ResidentProfile({ residentId, actions, onBack, onOpenChat, onOpenIssue, onAssignAction, onOpenAction }) {
   const r = RESIDENTS.find(x => x.id === residentId);
   const [tab, setTab] = useState('changes');
   const [showSchedule, setShowSchedule] = useState(false);
@@ -1779,6 +3339,10 @@ function ResidentProfile({ residentId, onBack, onOpenChat, onOpenIssue }) {
   const tone = RISK[r.risk];
   const teamIds = CARE_TEAMS[r.id] || CARE_TEAMS.r1;
   const team = teamIds.map(id => TEST_USERS.find(u => u.id === id)).filter(Boolean);
+  const evidence = residentEvidenceItems(r);
+  const activeDomains = Array.from(new Set([...(r.drivers || []), ...evidence.map(item => item.domain)]));
+  const residentSchedule = SCHEDULE_EVENTS_SEED.filter(event => event.residentId === r.id);
+  const nextSchedule = residentSchedule[0];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -1792,36 +3356,65 @@ function ResidentProfile({ residentId, onBack, onOpenChat, onOpenIssue }) {
       {/* Profile header */}
       <Card style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ height: 4, background: tone.dot }} />
-        <div class="ois-profile-grid">
-          {/* Identity */}
-          <div style={{ display: 'flex', gap: isPhone ? 14 : 20, alignItems: 'flex-start' }}>
+        <div style={{ padding: isPhone ? 14 : 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', gap: isPhone ? 12 : 16, alignItems: 'stretch' }}>
             <div style={{ position: 'relative' }}>
-              <Avatar initials={r.initials} seed={r.id} size={isPhone ? 64 : 92} isResident />
+              <Avatar initials={r.initials} seed={r.id} size={isPhone ? 58 : 72} isResident />
               <div style={{ position: 'absolute', bottom: -2, right: -2, background: '#fff', borderRadius: 9999, padding: 2 }}>
-                <div style={{ width: 18, height: 18, borderRadius: 9999, background: tone.dot, border: '2px solid #fff' }} />
+                <div style={{ width: 16, height: 16, borderRadius: 9999, background: tone.dot, border: '2px solid #fff' }} />
               </div>
             </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <h1 style={{ margin: 0, fontSize: isPhone ? 24 : 28, fontWeight: 700, letterSpacing: '-0.02em' }}>{r.name}</h1>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <h1 style={{ margin: 0, fontSize: isPhone ? 20 : 24, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.05 }}>{r.name}</h1>
                 <RiskBadge level={r.risk} score={r.score} />
               </div>
-              <div style={{ fontSize: 14, color: '#6A7282', marginTop: 6 }}>
+              <div style={{ fontSize: isPhone ? 12 : 13, color: '#6A7282', lineHeight: '17px' }}>
                 {r.age} · {r.sex} · <code style={{ fontFamily: 'JetBrains Mono', fontSize: 12 }}>MRN {r.mrn}</code>
               </div>
-              <div style={{ display: 'flex', gap: 18, marginTop: 14, flexWrap: 'wrap' }}>
-                <Detail icon="mapPin" label="Location" value={`Rm ${r.room} · ${r.unit}`} />
-                <Detail icon="shield" label="Code Status" value={r.code} />
-                <Detail icon="calendar" label="Admitted" value={r.admitted} />
-                <Detail icon="activity" label="Primary Dx" value={r.dx} flex />
-              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center', minWidth: isPhone ? 96 : 120 }}>
+              <Button size="sm" variant="lavender" icon="calendar" style={{ width: '100%' }} onClick={() => setShowSchedule(true)}>Schedule</Button>
+              <Button size="sm" variant="danger" icon="alertTriangle" style={{ width: '100%' }} onClick={() => setShowEscalate(true)}>Escalate</Button>
             </div>
           </div>
 
-          {/* Actions */}
-          <div class="ois-row-actions" style={{ display: 'flex', gap: 8 }}>
-            <Button variant="lavender" icon="calendar" onClick={() => setShowSchedule(true)}>Schedule</Button>
-            <Button variant="danger" icon="alertTriangle" onClick={() => setShowEscalate(true)}>Escalate</Button>
+          <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr 1fr' : 'repeat(3, minmax(0, 1fr))', gap: 8, width: '100%' }}>
+            <ProfileDetailTile icon="mapPin" label="Location" value={`Rm ${r.room} · ${r.unit}`} />
+            <ProfileDetailTile icon="shield" label="Code Status" value={r.code} />
+            <ProfileDetailTile icon="calendar" label="Admitted" value={r.admitted} />
+            <ProfileDetailTile icon="activity" label="Primary Dx" value={r.dx} wide />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) minmax(280px, 0.7fr)', gap: 10, width: '100%' }}>
+            <div style={{ padding: 10, border: '1px solid #EEEEEE', borderRadius: 9, background: '#FAFAFC' }}>
+              <div style={{ fontSize: 11, fontWeight: 900, color: '#6A7282', letterSpacing: '0.06em', marginBottom: 7 }}>ACTIVE RISK DOMAINS</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {activeDomains.length ? activeDomains.slice(0, 8).map(id => <DomainChip key={id} domainId={id} />) : <Chip tone="stable">Routine monitoring</Chip>}
+              </div>
+            </div>
+            <button onClick={() => setShowSchedule(true)} style={{
+              border: '1px solid #E5E7EB',
+              borderRadius: 9,
+              background: nextSchedule ? '#E7F5EF' : '#fff',
+              padding: 10,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              textAlign: 'left',
+              cursor: 'pointer',
+            }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: '#fff', border: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon name="calendar" size={16} color={nextSchedule ? '#00795E' : '#6A7282'} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: nextSchedule ? '#00795E' : '#6A7282', letterSpacing: '0.05em' }}>{nextSchedule ? 'NEXT SCHEDULED' : 'NO UPCOMING SCHEDULE'}</div>
+                <div style={{ fontSize: 12, fontWeight: 900, color: '#1C192E', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {nextSchedule ? `${nextSchedule.title} · ${nextSchedule.dateLabel} ${nextSchedule.startLabel}` : 'Tap to schedule'}
+                </div>
+              </div>
+              <Icon name="chevronRight" size={14} color="#99A1AF" />
+            </button>
           </div>
         </div>
 
@@ -1832,9 +3425,34 @@ function ResidentProfile({ residentId, onBack, onOpenChat, onOpenIssue }) {
         </div>
       </Card>
 
+      <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) minmax(280px, 0.8fr)', gap: 12 }}>
+        <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 900, color: '#1C192E' }}>Why this resident was flagged</div>
+            <div style={{ fontSize: 12, color: '#6A7282', marginTop: 3 }}>
+              Risk moved to {riskLabelForResident(r)} and is {trendLabelForResident(r)} over the current monitoring window.
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {(evidence.length ? evidence : [{ id: 'routine', title: 'Routine monitoring', detail: r.dx, severity: r.risk }]).slice(0, 5).map(item => (
+              <div key={item.id} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontSize: 13, color: '#1C192E', lineHeight: '18px' }}>
+                <span style={{ width: 7, height: 7, borderRadius: 9999, background: (RISK[item.severity] || tone).dot, marginTop: 6, flexShrink: 0 }} />
+                <span><b>{item.title}</b>{item.detail ? ` - ${item.detail}` : ''}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <OperationalCognitionPanel resident={r} actions={actions} compact={isPhone} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) minmax(300px, 0.9fr)', gap: 12 }}>
+        <ContinuityThreadPanel r={r} actions={actions} onOpenAction={onOpenAction} />
+        <SuggestedActionPanel r={r} actions={actions} onAssign={onAssignAction} onOpenAction={onOpenAction} />
+      </div>
+
       {/* Tabs */}
       <Card style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ display: 'flex', borderBottom: '1px solid #EEEEEE', padding: isPhone ? '0 8px' : '0 16px', overflowX: 'auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', borderBottom: '1px solid #EEEEEE', padding: isPhone ? '0 4px' : '0 12px' }}>
           {[
             { id: 'changes', label: 'Changes', icon: 'activity', count: (r.issues || []).length },
             { id: 'team', label: 'Care Team', icon: 'users', count: team.length },
@@ -1858,6 +3476,28 @@ function ResidentProfile({ residentId, onBack, onOpenChat, onOpenIssue }) {
   );
 }
 
+function ProfileDetailTile({ icon, label, value, wide }) {
+  return (
+    <div style={{
+      gridColumn: wide ? '1 / -1' : undefined,
+      minWidth: 0,
+      border: '1px solid #EEEEEE',
+      borderRadius: 9,
+      background: '#fff',
+      padding: 10,
+      display: 'flex',
+      gap: 8,
+      alignItems: 'flex-start',
+    }}>
+      <Icon name={icon} size={15} color="#99A1AF" />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 10, fontWeight: 900, color: '#99A1AF', letterSpacing: '0.06em' }}>{label.toUpperCase()}</div>
+        <div style={{ fontSize: 12, fontWeight: 800, marginTop: 3, color: '#1C192E', lineHeight: '16px' }}>{value}</div>
+      </div>
+    </div>
+  );
+}
+
 function Detail({ icon, label, value, flex }) {
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', minWidth: 0, flex: flex ? 1 : '0 0 auto' }}>
@@ -1875,16 +3515,18 @@ function TabBtn({ t, active, onClick }) {
   const isPhone = v.isMobile;
   return (
     <button onClick={onClick} style={{
-      padding: isPhone ? '12px 10px' : '14px 18px', border: 0, background: 'transparent', cursor: 'pointer',
-      display: 'flex', alignItems: 'center', gap: 8, fontSize: isPhone ? 13 : 14, fontWeight: 700,
+      padding: isPhone ? '10px 4px 9px' : '12px 8px 10px', border: 0, background: 'transparent', cursor: 'pointer',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+      fontSize: isPhone ? 11 : 12, fontWeight: 800,
       color: active ? '#845EC2' : '#6A7282',
       borderBottom: `2px solid ${active ? '#845EC2' : 'transparent'}`,
-      marginBottom: -1, transition: 'all 120ms', flexShrink: 0,
+      marginBottom: -1, transition: 'all 120ms', minWidth: 0, minHeight: isPhone ? 58 : 64, position: 'relative',
     }}>
-      <Icon name={t.icon} size={16} color={active ? '#845EC2' : '#6A7282'} />
-      {t.label}
+      <Icon name={t.icon} size={isPhone ? 17 : 18} color={active ? '#845EC2' : '#6A7282'} />
+      <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.label}</span>
       {t.count != null && <span style={{
-        minWidth: 20, height: 18, padding: '0 6px', borderRadius: 9999,
+        position: 'absolute', top: 5, right: 5,
+        minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9999,
         background: active ? '#F5F2FD' : '#F3F4F6', color: active ? '#845EC2' : '#6A7282',
         fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       }}>{t.count}</span>}
@@ -1917,7 +3559,9 @@ function RiskScoreCard({ score, level, trend }) {
 }
 
 function RiskTrendChart({ score, level }) {
-  const tone = RISK[level];
+  const lineColor = '#E53E3E';
+  const softRed = 'rgba(229,62,62,0.12)';
+  const gradId = `risk-trend-red-${level || 'resident'}`;
   // Generate 14 data points trending up to current
   const points = useMemo(() => {
     const arr = [];
@@ -1944,21 +3588,21 @@ function RiskTrendChart({ score, level }) {
         <div style={{ fontSize: 11, fontWeight: 700, color: '#99A1AF', letterSpacing: '0.08em' }}>14-DAY TREND</div>
         <div style={{ fontSize: 11, color: '#6A7282' }}>Score · driven by vitals, labs, ADL change, med adherence</div>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block', background: 'linear-gradient(180deg, rgba(253,236,236,0.72) 0%, rgba(255,255,255,0) 100%)', borderRadius: 8 }}>
         <defs>
-          <linearGradient id="trend-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={tone.dot} stopOpacity="0.25" />
-            <stop offset="100%" stopColor={tone.dot} stopOpacity="0" />
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#E53E3E" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="#E53E3E" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <line x1={P} y1={P + (1 - 0.6) * (H - 2 * P)} x2={W - P} y2={P + (1 - 0.6) * (H - 2 * P)} stroke="#EEEEEE" strokeDasharray="3 3" />
-        <line x1={P} y1={P + (1 - 0.8) * (H - 2 * P)} x2={W - P} y2={P + (1 - 0.8) * (H - 2 * P)} stroke="#FFE5E5" strokeDasharray="3 3" />
-        <path d={areaPath} fill="url(#trend-grad)" />
-        <path d={path} fill="none" stroke={tone.dot} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        <line x1={P} y1={P + (1 - 0.6) * (H - 2 * P)} x2={W - P} y2={P + (1 - 0.6) * (H - 2 * P)} stroke={softRed} strokeDasharray="3 3" />
+        <line x1={P} y1={P + (1 - 0.8) * (H - 2 * P)} x2={W - P} y2={P + (1 - 0.8) * (H - 2 * P)} stroke="#FCA5A5" strokeDasharray="3 3" />
+        <path d={areaPath} fill={`url(#${gradId})`} />
+        <path d={path} fill="none" stroke={lineColor} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
         {points.map((p, i) => {
           const x = P + (i / (points.length - 1)) * (W - P * 2);
           const y = P + (1 - (p - min) / (max - min)) * (H - P * 2);
-          return <circle key={i} cx={x} cy={y} r={i === points.length - 1 ? 4 : 0} fill={tone.dot} />;
+          return <circle key={i} cx={x} cy={y} r={i === points.length - 1 ? 4 : 0} fill={lineColor} />;
         })}
       </svg>
     </div>
@@ -1969,33 +3613,25 @@ function RiskTrendChart({ score, level }) {
 
 function ChangesTab({ r, onOpenIssue }) {
   const issues = r.issues || [
-    { id: 'i1', kind: 'vitals', severity: 'watch', title: 'No active changes flagged', detail: 'Continuity AI is monitoring vitals, labs, and notes. You will be notified when something changes.', source: 'AI · monitor', time: 'Now' },
+    { id: 'i1', kind: 'vitals', severity: 'watch', title: 'No active changes flagged', detail: 'Vitals, labs, and notes are within the current monitoring window.', source: 'Monitor', time: 'Now' },
   ];
-  const [statuses, setStatuses] = useState({});
-  function setStatus(id, s) {
-    setStatuses(m => ({ ...m, [id]: s }));
-    if (s === 'ack')      emitToast('Change acknowledged.');
-    if (s === 'monitor')  emitToast('Moved to For Monitoring.', 'info');
-  }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-        <Icon name="sparkles" size={16} color="#845EC2" />
+        <Icon name="activity" size={16} color="#845EC2" />
         <div style={{ fontSize: 13, color: '#6A7282' }}>
-          <b style={{ color: '#1C192E' }}>{issues.length} active changes</b> driving this resident's risk score. Click any card for full evidence and AI-suggested actions.
+          <b style={{ color: '#1C192E' }}>{issues.length} active changes</b> driving this resident's risk score. Click any card for full evidence and next actions.
         </div>
       </div>
       {issues.map(issue => (
         <ChangeCard key={issue.id} issue={issue} r={r}
-          status={statuses[issue.id]}
-          onSetStatus={s => setStatus(issue.id, s)}
           onOpen={() => onOpenIssue && onOpenIssue(r.id, issue.id)} />
       ))}
     </div>
   );
 }
 
-function ChangeCard({ issue, r, onOpen, status, onSetStatus }) {
+function ChangeCard({ issue, r, onOpen, status }) {
   const sev = RISK[issue.severity] || RISK.watch;
   const iconMap = { vitals: 'activity', wound: 'heart', med: 'pill', fall: 'shield', lab: 'fileText', nutrition: 'droplet', sepsis: 'alertTriangle', rehab: 'trendingDown' };
   const [hover, setHover] = useState(false);
@@ -2025,20 +3661,20 @@ function ChangeCard({ issue, r, onOpen, status, onSetStatus }) {
           <span>{issue.time}</span>
         </div>
       </div>
-      <div onClick={e => e.stopPropagation()}>
-        <ChangeActionMenu status={status} onSetStatus={onSetStatus} />
-      </div>
     </div>
   );
 }
 
-function ChangeActionMenu({ status, onSetStatus }) {
+function ChangeActionMenu({ status, onSetStatus, fullWidth }) {
+  const containerStyle = fullWidth ? { width: '100%' } : undefined;
+  const actionStyle = fullWidth ? { width: '100%', height: 40, justifyContent: 'center' } : undefined;
   if (status === 'ack') {
     return (
       <span style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
         padding: '8px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700,
         background: '#E7F5EF', color: '#3F6B4E',
+        ...actionStyle,
       }}>
         <Icon name="check" size={14} color="#3F6B4E" /> Acknowledged
       </span>
@@ -2050,6 +3686,7 @@ function ChangeActionMenu({ status, onSetStatus }) {
         display: 'inline-flex', alignItems: 'center', gap: 6,
         padding: '8px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700,
         background: '#FFF8E6', color: '#92703A',
+        ...actionStyle,
       }}>
         <Icon name="activity" size={14} color="#92703A" /> For Monitoring
       </span>
@@ -2059,6 +3696,8 @@ function ChangeActionMenu({ status, onSetStatus }) {
     <MoreActionMenu
       label="More action"
       icon="plus"
+      style={containerStyle}
+      buttonStyle={actionStyle}
       items={[
         { icon: 'check',    label: 'Acknowledge',  sub: 'Mark this change as reviewed and resolved.', onClick: () => onSetStatus('ack') },
         { icon: 'activity', label: 'Move to Watch', sub: 'Keep monitoring — change stays open.',       onClick: () => onSetStatus('monitor') },
@@ -2077,6 +3716,8 @@ function ChangeDetailPage({ residentId, issueId, onBack }) {
   const [discussOpen, setDiscussOpen] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [status, setStatus] = useState(null);
+  const v = useViewport();
+  const isPhone = v.isMobile;
   const sev = RISK[issue.severity] || RISK.watch;
   const iconMap = { vitals: 'activity', wound: 'heart', med: 'pill', fall: 'shield', lab: 'fileText', nutrition: 'droplet', sepsis: 'alertTriangle', rehab: 'trendingDown' };
   const drivers = (issue.drivers || r.drivers || []).slice(0, 3);
@@ -2093,93 +3734,119 @@ function ChangeDetailPage({ residentId, issueId, onBack }) {
     { when: 'Today',        text: `Risk increased → ${sev.label}`, tone: '#E53E3E' },
   ];
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <button onClick={onBack} style={{
-        background: 'transparent', border: 0, color: '#845EC2', fontSize: 13, fontWeight: 700,
+        background: 'transparent', border: 0, color: '#845EC2', fontSize: 13, fontWeight: 800,
         cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: 0, alignSelf: 'flex-start',
       }}>
-        <Icon name="chevronLeft" size={16} color="#845EC2" /> Back
+        <Icon name="chevronLeft" size={16} color="#845EC2" /> Back to Changes
       </button>
-      <Card style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: sev.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name={iconMap[issue.kind] || 'activity'} size={24} color={sev.fg} />
+
+      <Card style={{ padding: isPhone ? 16 : 20, display: 'flex', flexDirection: 'column', gap: 14, borderLeft: `4px solid ${sev.dot}` }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <div style={{ width: 44, height: 44, borderRadius: 10, background: sev.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Icon name={iconMap[issue.kind] || 'activity'} size={22} color={sev.fg} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em' }}>{issue.title}</div>
-            <div style={{ fontSize: 13, color: '#6A7282', marginTop: 2 }}>{r.name} · Rm {r.room} · {r.unit} · <code style={{ fontFamily: 'JetBrains Mono', fontSize: 12 }}>MRN {r.mrn}</code></div>
+            <div style={{ fontSize: isPhone ? 18 : 22, fontWeight: 800, lineHeight: isPhone ? '23px' : '28px', color: '#1C192E' }}>{issue.title}</div>
+            <div style={{ fontSize: 12, color: '#6A7282', marginTop: 5, lineHeight: '17px' }}>
+              {r.name} · Rm {r.room} · {r.unit} · MRN {r.mrn}
+            </div>
           </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <RiskBadge level={issue.severity} />
+          <Chip tone="info">{issue.source}</Chip>
+          <Chip tone="todo">{issue.time}</Chip>
+          <Chip tone={r.code === 'Full Code' ? 'info' : r.code.startsWith('DNR') ? 'voided' : 'todo'}>Code: {r.code}</Chip>
+          {status && <Chip tone={status === 'ack' ? 'signed' : 'watch'} dot>{status === 'ack' ? 'Acknowledged' : 'For Monitoring'}</Chip>}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', paddingBottom: 16, borderBottom: '1px solid #EEEEEE' }}>
-          <div style={{ fontSize: 12, color: '#6A7282' }}>{issue.source} · {issue.time}</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <ChangeActionMenu status={status} onSetStatus={s => { setStatus(s); s === 'ack' ? emitToast('Change acknowledged.') : emitToast('Moved to For Monitoring.', 'info'); }} />
-            <Button variant="secondary" icon="users" onClick={() => setDiscussOpen(true)}>Discuss with Team</Button>
-            <Button variant="primary" icon="phone" onClick={() => setNotifyOpen(true)}>Notify Provider</Button>
+
+        <div style={{ padding: 12, borderRadius: 10, background: '#FAFAFC', border: '1px solid #EEEEEE', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: '#67568C', letterSpacing: '0.05em' }}>RECOMMENDED NEXT HUMAN DECISION</div>
+          <div style={{ fontSize: 14, color: '#1C192E', lineHeight: '20px', fontWeight: 700 }}>{actions[0] ? actions[0].title : 'Review this change with the care team'}</div>
+          <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px' }}>{actions[0] ? actions[0].sub : 'Confirm evidence, select the intervention, and document the outcome.'}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: 8, alignItems: 'stretch' }}>
+            <Button variant="primary" icon="phone" style={{ width: '100%' }} onClick={() => setNotifyOpen(true)}>Notify Provider</Button>
+            <Button variant="secondary" icon="users" style={{ width: '100%' }} onClick={() => setDiscussOpen(true)}>Discuss Team</Button>
+            <ChangeActionMenu fullWidth status={status} onSetStatus={s => { setStatus(s); s === 'ack' ? emitToast('Change acknowledged.') : emitToast('Moved to For Monitoring.', 'info'); }} />
           </div>
         </div>
+      </Card>
 
-        <div style={{ background: '#FAFAFA', borderRadius: 10, padding: 16, border: '1px solid #EEEEEE' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#52525B', letterSpacing: '0.06em', marginBottom: 8 }}>WHY THIS WAS FLAGGED</div>
+      <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1.05fr) minmax(280px, 0.95fr)', gap: 12 }}>
+        <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: '#52525B', letterSpacing: '0.06em' }}>WHY THIS WAS FLAGGED</div>
           <div style={{ fontSize: 14, color: '#1C192E', lineHeight: '20px' }}>{issue.detail}</div>
-          <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {reasons.map((rs, i) => (
-              <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, color: '#1C192E' }}>
-                <span style={{ width: 6, height: 6, borderRadius: 9999, background: sev.dot, marginTop: 7, flexShrink: 0 }} />
+              <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontSize: 13, color: '#1C192E', lineHeight: '18px' }}>
+                <span style={{ width: 7, height: 7, borderRadius: 9999, background: sev.dot, marginTop: 6, flexShrink: 0 }} />
                 <span>{rs}</span>
-              </li>
+              </div>
             ))}
-          </ul>
-        </div>
-
-        {drivers.length > 0 && (
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#52525B', letterSpacing: '0.06em', marginBottom: 8 }}>CLINICAL DOMAINS</div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          </div>
+          {drivers.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingTop: 4 }}>
               {drivers.map(id => {
                 const cat = RISK_CATEGORIES.find(c => c.id === id);
                 return cat ? <Chip key={id} tone="todo">{cat.label}</Chip> : null;
               })}
             </div>
-          </div>
-        )}
+          )}
+        </Card>
 
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#52525B', letterSpacing: '0.06em', marginBottom: 8 }}>SUGGESTED ACTIONS</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {actions.map((a, i) => (
-              <div key={i} style={{ border: '1px solid #E5E7EB', borderRadius: 10, padding: 12, display: 'flex', gap: 12, alignItems: 'center', background: '#fff' }}>
-                <div style={{ width: 32, height: 32, borderRadius: 9999, background: '#F5F2FD', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name={a.kind} size={16} color="#845EC2" />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>{a.title}</div>
-                  <div style={{ fontSize: 12, color: '#6A7282', marginTop: 2 }}>{a.sub}</div>
-                </div>
-                <IconButton icon="plus" color="#845EC2" onClick={() => emitToast(`Queued: ${a.title}`)} />
+        <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: '#52525B', letterSpacing: '0.06em' }}>ACTION QUEUE</div>
+          {actions.map((a, i) => (
+            <button key={i} onClick={() => emitToast(`Queued: ${a.title}`)} style={{
+              border: '1px solid #E5E7EB', borderRadius: 10, padding: 12, display: 'flex',
+              gap: 10, alignItems: 'center', background: i === 0 ? '#F5F2FD' : '#fff',
+              cursor: 'pointer', textAlign: 'left',
+            }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9999, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid #E5E7EB' }}>
+                <Icon name={a.kind} size={16} color="#845EC2" />
               </div>
-            ))}
-          </div>
-        </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#1C192E' }}>{a.title}</div>
+                <div style={{ fontSize: 12, color: '#6A7282', marginTop: 2, lineHeight: '17px' }}>{a.sub}</div>
+              </div>
+              <Icon name="plus" size={16} color="#845EC2" />
+            </button>
+          ))}
+        </Card>
 
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#52525B', letterSpacing: '0.06em', marginBottom: 10 }}>TIMELINE</div>
+        <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: '#52525B', letterSpacing: '0.06em' }}>TIMELINE</div>
           <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 12, position: 'relative' }}>
             <span style={{ position: 'absolute', top: 6, bottom: 6, left: 5, width: 1, background: '#E5E7EB' }} />
             {timeline.map((ev, i) => (
-              <li key={i} style={{ display: 'flex', gap: 14, position: 'relative' }}>
+              <li key={i} style={{ display: 'flex', gap: 13, position: 'relative' }}>
                 <span style={{ width: 11, height: 11, borderRadius: 9999, background: ev.tone, marginTop: 4, flexShrink: 0, zIndex: 1, border: '2px solid #fff' }} />
-                <div>
-                  <div style={{ fontSize: 12, color: '#6A7282', fontWeight: 600 }}>{ev.when}</div>
-                  <div style={{ fontSize: 13, color: '#1C192E', marginTop: 2 }}>{ev.text}</div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: '#6A7282', fontWeight: 700 }}>{ev.when}</div>
+                  <div style={{ fontSize: 13, color: '#1C192E', marginTop: 2, lineHeight: '18px' }}>{ev.text}</div>
                 </div>
               </li>
             ))}
           </ol>
-        </div>
+        </Card>
 
-      </Card>
+        <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: '#52525B', letterSpacing: '0.06em' }}>CARE TEAM</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {team.slice(0, 6).map(u => (
+              <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 9px', border: '1px solid #E5E7EB', borderRadius: 9999, background: '#fff' }}>
+                <Avatar initials={u.initials} seed={u.id} size={24} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#1C192E' }}>{u.short}</span>
+              </div>
+            ))}
+          </div>
+          <Button variant="secondary" icon="message" onClick={() => setDiscussOpen(true)}>Open Team Discussion</Button>
+        </Card>
+      </div>
+
       {notifyOpen && <NotifyProviderModal r={r} issue={issue} team={team} onClose={() => setNotifyOpen(false)} />}
       {discussOpen && <DiscussTeamModal r={r} issue={issue} team={team} onClose={() => setDiscussOpen(false)} />}
     </div>
@@ -2347,7 +4014,7 @@ function DiscussTeamModal({ r, issue, team, onClose }) {
     <ModalShell title="Discuss with Team" subtitle={`Start a thread about ${r.name}. ${r.name} will be tagged automatically.`} onClose={onClose} width={580}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ background: '#F5F2FD', borderRadius: 10, padding: 12, fontSize: 12, color: '#67568C', display: 'flex', gap: 10, alignItems: 'center' }}>
-          <Icon name="sparkles" size={14} color="#67568C" />
+          <Icon name="message" size={14} color="#67568C" />
           {selected.length === 0 && 'Select at least one team member to start a thread.'}
           {selected.length === 1 && 'Direct message — patient will be auto-tagged in the thread.'}
           {selected.length > 1 && `Group chat with ${selected.length} members — patient auto-tagged. Saved to Care Plan.`}
@@ -2454,7 +4121,6 @@ function NotesTab({ r, team }) {
             <div style={{ display: 'flex', gap: 4 }}>
               <IconButton icon="paperclip" />
               <IconButton icon="users" title="Tag people" />
-              <IconButton icon="sparkles" title="AI suggest" color="#845EC2" />
             </div>
             <Button variant="primary" size="sm" icon="send" onClick={send}>Post Note</Button>
           </div>
@@ -2499,18 +4165,18 @@ function CarePlanTab({ r, team }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ background: '#FAFAFA', borderRadius: 8, padding: 16, border: '1px solid #EEEEEE' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <Icon name="sparkles" size={14} color="#52525B" />
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#52525B', letterSpacing: '0.04em' }}>AI CARE PLAN SUMMARY</div>
+          <Icon name="fileText" size={14} color="#52525B" />
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#52525B', letterSpacing: '0.04em' }}>CARE PLAN SUMMARY</div>
         </div>
         <div style={{ fontSize: 13, lineHeight: '19px', color: '#1C192E' }}>
           Active goals: <b>stabilize CHF</b>, <b>advance sacral wound healing</b>, <b>target home discharge in 4 weeks</b>.
-          Open threads: nephrology consult pending response, repositioning compliance flagged. Next AI check-in: 14:00.
+          Open threads: nephrology consult pending response, repositioning compliance flagged. Next care-plan review: 14:00.
         </div>
       </div>
       {items.map(item => <CarePlanThread key={item.id} item={item} team={team} />)}
       {items.length === 0 && (
         <div style={{ textAlign: 'center', padding: 32, color: '#99A1AF', fontSize: 13 }}>
-          No conversations yet. Start a thread from the Care Team tab — the AI will preserve it as continuity.
+          No conversations yet. Start a thread from the Care Team tab to preserve it as continuity.
         </div>
       )}
     </div>
@@ -2554,7 +4220,7 @@ function CarePlanThread({ item, team }) {
           </div>
           <div style={{ marginTop: 12, padding: 12, background: '#F5F2FD', borderRadius: 8, fontSize: 13, lineHeight: '19px', color: '#1C192E' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: '#67568C', letterSpacing: '0.04em', marginBottom: 6 }}>
-              <Icon name="sparkles" size={12} color="#67568C" /> AI SUMMARY
+              <Icon name="fileText" size={12} color="#67568C" /> SUMMARY
             </div>
             {item.summary}
           </div>
@@ -2619,6 +4285,7 @@ function ScheduleModal({ r, team, onClose }) {
   const isPhone = v.isMobile;
 
   const finalIds = includeAll ? team.map(u => u.id) : selected;
+  const scheduled = SCHEDULE_EVENTS_SEED.filter(event => event.residentId === r.id);
 
   function toggle(id) {
     setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
@@ -2643,6 +4310,27 @@ function ScheduleModal({ r, team, onClose }) {
               <Button variant="ghost" icon="phone" style={{ flex: 1 }}>Voice</Button>
             </div>
           </div>
+        </div>
+        <div style={{ padding: 12, border: '1px solid #E5E7EB', borderRadius: 10, background: scheduled.length ? '#E7F5EF' : '#FAFAFC' }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: scheduled.length ? '#00795E' : '#6A7282', letterSpacing: '0.06em', marginBottom: 8 }}>
+            CURRENT SCHEDULE
+          </div>
+          {scheduled.length ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {scheduled.map(event => (
+                <div key={event.id} style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#fff', border: '1px solid #DDEFE7', borderRadius: 8, padding: 9 }}>
+                  <Icon name="calendar" size={15} color="#00795E" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 900, color: '#1C192E' }}>{event.title}</div>
+                    <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2 }}>{event.dateLabel} · {event.startLabel}-{event.endLabel} · {event.location}</div>
+                  </div>
+                  <Chip tone={event.status === 'Tentative' ? 'watch' : 'stable'}>{event.status}</Chip>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: '#6A7282' }}>No scheduled huddles, family conferences, consults, or care-team meetings are currently attached to this resident.</div>
+          )}
         </div>
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -2694,7 +4382,7 @@ function EscalateModal({ r, team, onClose }) {
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#6A7282', marginBottom: 6 }}>REASON</div>
           <textarea value={reason} onInput={e => setReason(e.target.value)}
-            placeholder="What's happening? AI will pre-fill from the latest changes if you leave this blank."
+            placeholder="What's happening? Leave blank to use the latest documented change."
             style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: 6, padding: 12, font: '14px Inter', resize: 'vertical', minHeight: 90, boxSizing: 'border-box' }} />
         </div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
@@ -2720,17 +4408,32 @@ function SchedulePage({ onOpenResident }) {
   const hours = Array.from({ length: 11 }, (_, i) => 7 + i); // 7am-5pm
 
   const events = useMemo(() => {
-    const r1 = RESIDENTS[0], r2 = RESIDENTS[1] || RESIDENTS[0], r3 = RESIDENTS[2] || RESIDENTS[0], r4 = RESIDENTS[3] || RESIDENTS[0];
     const todayIdx = (day + 6) % 7;
-    return [
-      { id: 'e1', day: todayIdx, start: 9,  end: 9.5,  title: 'Care plan review', resident: r1, kind: 'meeting' },
-      { id: 'e2', day: todayIdx, start: 11, end: 11.5, title: 'Wound consult',    resident: r2, kind: 'meeting' },
-      { id: 'e3', day: todayIdx, start: 14, end: 15,   title: 'Family conference', resident: r1, kind: 'family' },
-      { id: 'e4', day: Math.min(todayIdx + 1, 6), start: 8,  end: 9,  title: 'Daily huddle', kind: 'huddle' },
-      { id: 'e5', day: Math.min(todayIdx + 1, 6), start: 13, end: 13.5, title: 'Medication review', resident: r3, kind: 'meeting' },
-      { id: 'e6', day: Math.min(todayIdx + 2, 6), start: 10, end: 10.5, title: 'Discharge planning', resident: r4, kind: 'meeting' },
-      { id: 'e7', day: Math.min(todayIdx + 3, 6), start: 15, end: 16,   title: 'PT assessment',     resident: r2, kind: 'meeting' },
-    ];
+    const dateOffsets = { Today: 0, Tomorrow: 1, Friday: Math.max(0, 4 - todayIdx) };
+    function parseTime(label) {
+      const match = label.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+      if (!match) return 9;
+      let hour = Number(match[1]);
+      const minute = Number(match[2]) / 60;
+      const period = match[3].toUpperCase();
+      if (period === 'PM' && hour !== 12) hour += 12;
+      if (period === 'AM' && hour === 12) hour = 0;
+      return hour + minute;
+    }
+    return SCHEDULE_EVENTS_SEED.map(event => {
+      const offset = dateOffsets[event.dateLabel] == null ? 0 : dateOffsets[event.dateLabel];
+      const resident = event.residentId ? RESIDENTS.find(r => r.id === event.residentId) : null;
+      const start = parseTime(event.startLabel);
+      const end = parseTime(event.endLabel);
+      return {
+        ...event,
+        day: Math.min(todayIdx + offset, 6),
+        start,
+        end,
+        resident,
+        kind: event.kind === 'family' ? 'family' : event.kind === 'huddle' ? 'huddle' : 'meeting',
+      };
+    });
   }, [day]);
 
   const eventColors = {
@@ -2745,7 +4448,7 @@ function SchedulePage({ onOpenResident }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader
         title="Schedule"
-        subtitle="Care team meetings, huddles, and family conferences for this facility."
+        subtitle="Care team meetings, huddles, consults, and family conferences. Resident profile cards show the next scheduled item."
         actions={[
           <Button key="new" variant="primary" icon="plus" onClick={() => emitToast('Open a resident profile to schedule a meeting.', 'info')}>New Meeting</Button>,
         ]}
@@ -2841,40 +4544,76 @@ Object.assign(window, { ResidentsList, ResidentProfile, ChangeDetailPage, Schedu
 
 function ChangesPage({ onOpenResident, onOpenIssue }) {
   const [filter, setFilter] = useState('all');
-  const filtered = FACILITY_CHANGES.filter(c => filter === 'all' || c.severity === filter);
+  const priorityRank = { critical: 0, high: 1, watch: 2, stable: 3 };
+  const severityCounts = FACILITY_CHANGES.reduce((acc, c) => {
+    acc[c.severity] = (acc[c.severity] || 0) + 1;
+    return acc;
+  }, {});
+  const filtered = FACILITY_CHANGES
+    .filter(c => filter === 'all' || c.severity === filter)
+    .slice()
+    .sort((a, b) => (priorityRank[a.severity] ?? 9) - (priorityRank[b.severity] ?? 9));
   const v = useViewport();
   const isPhone = v.isMobile;
+  const topChange = filtered[0];
+  const topResident = topChange ? RESIDENTS.find(x => x.id === topChange.residentId) : null;
+  const [alertAgentRun, setAlertAgentRun] = useState({ status: 'idle', steps: [] });
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!topResident) {
+      setAlertAgentRun({ status: 'idle', steps: [] });
+      return;
+    }
+
+    setAlertAgentRun({ status: 'running', steps: [] });
+    runResidentAgentSkill({
+      skillId: RESIDENT_BASELINE_SKILL_ID,
+      residentId: topResident.id,
+      stepDelay: 160,
+      onStep: (step, steps) => {
+        if (!cancelled) setAlertAgentRun({ status: 'running', steps });
+      },
+    }).then(run => {
+      if (!cancelled) setAlertAgentRun({ status: 'complete', steps: run.steps, assessment: run.assessment });
+    }).catch(error => {
+      if (!cancelled) setAlertAgentRun({ status: 'error', steps: [{ id: 'alert-agent-error', status: 'error', label: 'Alert agent failed', detail: error.message, time: 'now' }] });
+    });
+
+    return () => { cancelled = true; };
+  }, [topResident ? `${filter}-${topResident.id}` : filter]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: isPhone ? 20 : 28 }}>
       <PageHeader
         title="Changes"
-        subtitle="AI-detected deviations across all residents in the last 24 hours. Click any card to open the resident."
+        subtitle="Clinical deviations across all residents in the last 24 hours. Click any card to open the resident."
         actions={[
-          <Button key="brief" variant="secondary" icon="sparkles" onClick={() => emitToast('AI brief generated — sent to your inbox.', 'info')}>Generate AI Brief</Button>,
           <Button key="filter" variant="secondary" icon="filter" onClick={() => emitToast('Advanced filters coming soon.', 'info')}>Filter</Button>,
         ]}
       />
 
       <Card style={{ padding: isPhone ? 12 : 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 0, maxWidth: '100%', overflowX: 'auto' }}>
-          <SegmentedControl
-            value={filter} onChange={setFilter}
-            options={[
-              { id: 'all', label: `All (${FACILITY_CHANGES.length})` },
-              { id: 'critical', label: 'Critical', tone: 'critical' },
-              { id: 'high', label: 'High', tone: 'high' },
-              { id: 'watch', label: 'Watch', tone: 'watch' },
-              { id: 'stable', label: 'Stable', tone: 'stable' },
-            ]}
-          />
-        </div>
-        <div style={{ flex: 1 }} />
-        <div style={{ fontSize: 12, color: '#6A7282', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <ChangeFilterGrid
+          value={filter}
+          onChange={setFilter}
+          counts={{ all: FACILITY_CHANGES.length, ...severityCounts }}
+          isPhone={isPhone}
+        />
+        <div style={{ fontSize: 12, color: '#6A7282', display: 'flex', alignItems: 'center', gap: 6, width: isPhone ? '100%' : 'auto', justifyContent: isPhone ? 'flex-start' : 'flex-end' }}>
           <span style={{ width: 8, height: 8, borderRadius: 9999, background: '#29BB89' }} />
           Live · updated 14s ago
         </div>
       </Card>
+
+      {topResident && (
+        <AgentExecutionLog
+          steps={alertAgentRun.steps}
+          title="Alert Agent Trace"
+          subtitle={`${topResident.name} - top ${filter === 'all' ? 'priority' : filter} alert is being checked with tool calls.`}
+          compact={isPhone}
+        />
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${isPhone ? 260 : 300}px, 1fr))`, gap: 12, alignItems: 'stretch' }}>
         {filtered.map((c, i) => {
@@ -2887,6 +4626,49 @@ function ChangesPage({ onOpenResident, onOpenIssue }) {
           </Card>
         )}
       </div>
+    </div>
+  );
+}
+
+function ChangeFilterGrid({ value, onChange, counts, isPhone }) {
+  const options = [
+    { id: 'all', label: 'All', tone: 'todo' },
+    { id: 'critical', label: 'Critical', tone: 'critical' },
+    { id: 'high', label: 'High', tone: 'high' },
+    { id: 'watch', label: 'Watch', tone: 'watch' },
+    { id: 'stable', label: 'Stable', tone: 'stable' },
+  ];
+  return (
+    <div style={{
+      flex: 1, minWidth: 0, display: 'grid',
+      gridTemplateColumns: isPhone ? 'repeat(2, minmax(0, 1fr))' : 'repeat(5, minmax(0, 1fr))',
+      gap: 8,
+    }}>
+      {options.map(o => {
+        const active = value === o.id;
+        const tone = o.tone === 'todo' ? { dot: '#845EC2', bg: '#F5F2FD', fg: '#67568C' } : RISK[o.tone];
+        return (
+          <button key={o.id} onClick={() => onChange(o.id)} style={{
+            minWidth: 0, minHeight: 42, borderRadius: 8,
+            border: `1px solid ${active ? tone.dot : '#E5E7EB'}`,
+            background: active ? tone.bg : '#fff',
+            color: active ? tone.fg : '#52525B',
+            cursor: 'pointer', padding: '8px 9px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+            font: '700 12px Inter',
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+              <span style={{ width: 7, height: 7, borderRadius: 9999, background: tone.dot, flexShrink: 0 }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.label}</span>
+            </span>
+            <span style={{
+              minWidth: 22, height: 22, padding: '0 6px', borderRadius: 9999,
+              background: active ? '#fff' : '#F4F4F5', color: active ? tone.fg : '#6A7282',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>{counts[o.id] || 0}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -2926,25 +4708,85 @@ function ChangeFeedCard({ c, r, onClick }) {
 
 // ============== WATCHLIST ==============
 
-function WatchlistPage({ onOpenResident }) {
-  const [active, setActive] = useState(null);
+function WatchlistPage({ actions, onOpenResident }) {
+  const [active, setActive] = useState('condition');
   const v = useViewport();
   const isPhone = v.isMobile;
-  if (active) {
-    const list = WATCHLISTS.find(w => w.id === active);
-    return <WatchlistDetail list={list} onBack={() => setActive(null)} onOpen={onOpenResident} />;
-  }
+  const domain = domainById(active);
+  const residents = priorityResidentsWithActions(actions).filter(r =>
+    (r.drivers || []).includes(active) ||
+    residentEvidenceItems(r).some(item => item.domain === active)
+  );
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: isPhone ? 20 : 28 }}>
       <PageHeader
-        title="Watchlist"
-        subtitle="Cohorts that need extra eyes. AI keeps these lists current — residents move on and off automatically."
+        title="Watchlists"
+        subtitle="Domain-focused views inside the same operational intelligence system. Residents stay ranked by overall risk."
         actions={[
-          <Button key="custom" variant="primary" icon="plus" onClick={() => emitToast('Custom watchlist builder coming soon.', 'info')}>Custom Watchlist</Button>,
+          <Button key="actions" variant="primary" icon="check" onClick={() => emitToast('Use Actions to assign and close follow-through from each resident.', 'info')}>Track Follow-through</Button>,
         ]}
       />
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${isPhone ? 240 : 280}px, 1fr))`, gap: 12 }}>
-        {WATCHLISTS.map(w => <WatchlistCard key={w.id} w={w} onClick={() => setActive(w.id)} />)}
+
+      <Card style={{ padding: 12, display: 'flex', gap: 8, overflowX: 'auto' }}>
+        {RISK_DOMAINS.map(d => {
+          const count = RESIDENTS.filter(r =>
+            (r.drivers || []).includes(d.id) ||
+            residentEvidenceItems(r).some(item => item.domain === d.id)
+          ).length;
+          const selected = active === d.id;
+          return (
+            <button key={d.id} onClick={() => setActive(d.id)} style={{
+              flex: '0 0 auto',
+              minWidth: isPhone ? 128 : 150,
+              borderRadius: 10,
+              border: `1px solid ${selected ? '#00C9A7' : '#E5E7EB'}`,
+              background: selected ? '#E7F5EF' : '#fff',
+              color: selected ? '#00795E' : '#1C192E',
+              padding: '10px 11px',
+              cursor: 'pointer',
+              textAlign: 'left',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                <span style={{ fontSize: 12, fontWeight: 900, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.short}</span>
+                <span style={{
+                  minWidth: 22, height: 22, borderRadius: 9999,
+                  background: selected ? '#fff' : '#F4F4F5',
+                  color: selected ? '#00795E' : '#6A7282',
+                  fontSize: 11, fontWeight: 900,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                }}>{count}</span>
+              </div>
+              <div style={{ fontSize: 11, color: selected ? '#3F6B4E' : '#6A7282', marginTop: 5, lineHeight: '15px' }}>{d.label}</div>
+            </button>
+          );
+        })}
+      </Card>
+
+      <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) 300px', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <SectionHeader
+            title={domain.label}
+            subtitle={`${residents.length} residents with active signals. Cards show domain evidence, action status, and global risk priority.`}
+          />
+          {residents.map(r => (
+            <OperationalResidentCard key={r.id} r={r} actions={actions} focusDomain={active} onClick={() => onOpenResident(r.id)} />
+          ))}
+          {residents.length === 0 && (
+            <Card style={{ padding: 28, textAlign: 'center', color: '#6A7282', fontSize: 13 }}>
+              No residents are currently on this watchlist.
+            </Card>
+          )}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <OperationalCognitionPanel actions={actions} compact={isPhone} />
+          <Card style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 9 }}>
+            <div style={{ fontSize: 14, fontWeight: 900, color: '#1C192E' }}>Suggested owner rule</div>
+            <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px' }}>
+              {domain.label} signals normally route to <b>{domain.owner}</b> with a recommended action of <b>{domain.action}</b>.
+            </div>
+            <DomainChip domainId={active} />
+          </Card>
+        </div>
       </div>
     </div>
   );
@@ -3037,16 +4879,28 @@ function WatchlistDetail({ list, onBack, onOpen }) {
 
 // ============== CHAT POPOVER ==============
 
-function ChatDock({ chats, onClose, onSendCall }) {
+function ChatDock({ chats, onClose, onSendCall, mobile }) {
   if (!chats || chats.length === 0) return null;
+  const visibleChats = mobile ? chats.slice(-1) : chats;
   return (
-    <div style={{ position: 'fixed', right: 24, bottom: 0, zIndex: 60, display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-      {chats.map(c => <ChatWindow key={c.id} chat={c} onClose={() => onClose(c.id)} onCall={() => onSendCall(c.id)} />)}
+    <div style={{
+      position: 'fixed',
+      left: mobile ? 8 : 'auto',
+      right: mobile ? 8 : 24,
+      bottom: mobile ? 'calc(76px + env(safe-area-inset-bottom))' : 0,
+      zIndex: 60,
+      display: 'flex',
+      gap: 12,
+      alignItems: 'flex-end',
+      justifyContent: 'flex-end',
+      pointerEvents: 'none',
+    }}>
+      {visibleChats.map(c => <ChatWindow key={c.id} chat={c} mobile={mobile} onClose={() => onClose(c.id)} onCall={() => onSendCall(c.id)} />)}
     </div>
   );
 }
 
-function ChatWindow({ chat, onClose, onCall }) {
+function ChatWindow({ chat, onClose, onCall, mobile }) {
   const [draft, setDraft] = useState('');
   const [messages, setMessages] = useState(chat.messages || []);
   const [callState, setCallState] = useState(null); // null | 'voice' | 'video' | 'summary'
@@ -3080,9 +4934,10 @@ function ChatWindow({ chat, onClose, onCall }) {
 
   return (
     <div style={{
-      width: 340, height: 480, background: '#fff', borderRadius: '12px 12px 0 0',
+      width: mobile ? '100%' : 340, height: mobile ? 'min(68vh, 500px)' : 480, background: '#fff', borderRadius: mobile ? 12 : '12px 12px 0 0',
       boxShadow: '0 -4px 24px rgba(0,0,0,0.12)', display: 'flex', flexDirection: 'column',
-      border: '1px solid #E5E7EB', borderBottom: 0, overflow: 'hidden',
+      border: '1px solid #E5E7EB', borderBottom: mobile ? '1px solid #E5E7EB' : 0, overflow: 'hidden',
+      pointerEvents: 'auto',
     }}>
       <div style={{ padding: '10px 12px', borderBottom: '1px solid #EEEEEE', background: '#1C192E', color: '#fff', display: 'flex', alignItems: 'center', gap: 10 }}>
         <Avatar initials={chat.user.initials} seed={chat.user.id} size={32} />
@@ -3107,13 +4962,13 @@ function ChatWindow({ chat, onClose, onCall }) {
             </div>
           </div>
           <div style={{ fontSize: 11, opacity: 0.6, marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Icon name="mic" size={12} color="#fff" /> AI is transcribing & summarizing — patient {chat.resident.name} auto-tagged.
+            <Icon name="mic" size={12} color="#fff" /> Call capture active — patient {chat.resident.name} auto-tagged.
           </div>
         </div>
       ) : callState === 'summary' && callSummary ? (
         <div style={{ flex: 1, padding: 14, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Icon name="sparkles" size={14} color="#845EC2" />
+            <Icon name="fileText" size={14} color="#845EC2" />
             <div style={{ fontSize: 11, fontWeight: 700, color: '#67568C', letterSpacing: '0.04em' }}>CALL SUMMARY · {callSummary.duration}</div>
           </div>
           <div style={{ fontSize: 13, lineHeight: '18px', padding: 12, background: '#F5F2FD', borderRadius: 8 }}>{callSummary.summary}</div>
@@ -3170,8 +5025,249 @@ const iconBtnLight = {
 Object.assign(window, { ChangesPage, WatchlistPage, ChatDock });
 
 
+// ---- app/actions.jsx ----
+// Actions and closure — accountability layer
+
+function ActionsPage({ actions, onOpenAction, onOpenResident, onUpdateActionStatus }) {
+  const [filter, setFilter] = useState('open');
+  const counts = actionStatusCounts(actions);
+  const filtered = actions
+    .filter(action => {
+      if (filter === 'open') return action.status !== 'Completed';
+      if (filter === 'high') return action.priority === 'High' && action.status !== 'Completed';
+      if (filter === 'overdue') return action.status === 'Overdue';
+      if (filter === 'assigned') return ['Assigned','In Progress'].includes(action.status);
+      if (filter === 'completed') return action.status === 'Completed';
+      if (filter === 'escalated') return action.status === 'Escalated';
+      return true;
+    })
+    .slice()
+    .sort((a, b) => {
+      const statusRank = { Overdue: 0, Escalated: 1, 'No Action': 2, Assigned: 3, 'In Progress': 4, Completed: 5 };
+      return (statusRank[a.status] ?? 9) - (statusRank[b.status] ?? 9);
+    });
+  const v = useViewport();
+  const isPhone = v.isMobile;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: isPhone ? 18 : 24 }}>
+      <PageHeader
+        title="Actions"
+        subtitle="Execution and accountability for resident risk. Nothing high-risk disappears without closure."
+      />
+      <OperationalCognitionPanel actions={actions} compact={isPhone} />
+
+      <Card style={{ padding: 14, display: 'grid', gridTemplateColumns: isPhone ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
+        <ActionMetric label="Overdue" value={counts.overdue} tone="critical" />
+        <ActionMetric label="Unassigned" value={counts.unassigned} tone="critical" />
+        <ActionMetric label="Escalated" value={counts.escalated} tone="high" />
+        <ActionMetric label="Due today" value={counts.dueToday} tone="watch" />
+      </Card>
+
+      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
+        {[
+          ['open', 'Open'],
+          ['high', 'High Priority'],
+          ['overdue', 'Overdue'],
+          ['assigned', 'Assigned'],
+          ['escalated', 'Escalated'],
+          ['completed', 'Completed'],
+        ].map(([id, label]) => (
+          <button key={id} onClick={() => setFilter(id)} style={{
+            flexShrink: 0, border: `1px solid ${filter === id ? '#00C9A7' : '#E5E7EB'}`,
+            background: filter === id ? '#E7F5EF' : '#fff', color: filter === id ? '#00795E' : '#52525B',
+            borderRadius: 9999, padding: '8px 12px', font: '800 12px Inter', cursor: 'pointer',
+          }}>{label}</button>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {filtered.map(action => (
+          <OperationalActionCard
+            key={action.id}
+            action={action}
+            onOpen={() => onOpenAction(action.id)}
+            onOpenResident={() => onOpenResident(action.residentId)}
+            onUpdateActionStatus={onUpdateActionStatus}
+          />
+        ))}
+        {filtered.length === 0 && (
+          <Card style={{ padding: 30, textAlign: 'center', color: '#6A7282', fontSize: 13 }}>No actions in this queue.</Card>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ActionMetric({ label, value, tone }) {
+  const c = tone === 'critical' ? '#E53E3E' : tone === 'high' ? '#FF6E6C' : '#E9C05F';
+  return (
+    <div style={{ border: '1px solid #EEEEEE', borderRadius: 10, padding: 12, background: '#fff' }}>
+      <div style={{ fontSize: 24, fontWeight: 900, color: c, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 11, color: '#6A7282', fontWeight: 800, marginTop: 4 }}>{label}</div>
+    </div>
+  );
+}
+
+function OperationalActionCard({ action, onOpen, onOpenResident, onUpdateActionStatus }) {
+  const r = RESIDENTS.find(x => x.id === action.residentId);
+  return (
+    <Card hoverable onClick={onOpen} style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        {r && <Avatar initials={r.initials} seed={r.id} size={38} isResident />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 14, fontWeight: 900, color: '#1C192E' }}>{r ? r.name : 'Resident'}</div>
+            {r && <button onClick={e => { e.stopPropagation(); onOpenResident(); }} style={{ border: 0, background: 'transparent', color: '#845EC2', font: '800 11px Inter', cursor: 'pointer', padding: 0 }}>Open resident</button>}
+          </div>
+          <div style={{ fontSize: 12, color: '#6A7282', marginTop: 2 }}>{r ? `Room ${r.room} · ${r.unit}` : 'Location pending'}</div>
+        </div>
+        <ActionStatusBadge status={action.status} />
+      </div>
+      <div>
+        <div style={{ fontSize: 15, fontWeight: 900, color: '#1C192E' }}>{action.type}</div>
+        <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px', marginTop: 3 }}>{action.reason}</div>
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <DomainChip domainId={action.domain} />
+        <Chip tone={action.priority === 'High' ? 'critical' : 'watch'}>{action.priority}</Chip>
+        <Chip tone="todo">{action.due}</Chip>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderTop: '1px solid #EEEEEE', paddingTop: 10 }}>
+        <div style={{ fontSize: 12, color: '#1C192E', fontWeight: 800 }}>{action.owner} · {action.ownerRole}</div>
+        <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 6 }}>
+          {action.status !== 'In Progress' && action.status !== 'Completed' && (
+            <Button size="sm" variant="secondary" onClick={() => onUpdateActionStatus(action.id, 'In Progress')}>Start</Button>
+          )}
+          {action.status !== 'Completed' && (
+            <Button size="sm" variant="primary" onClick={() => onUpdateActionStatus(action.id, 'Completed')}>Complete</Button>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function ActionDetailPage({ actionId, actions, onBack, onOpenResident, onUpdateActionStatus, onOpenClosure }) {
+  const action = actions.find(a => a.id === actionId);
+  const r = action && RESIDENTS.find(x => x.id === action.residentId);
+  if (!action || !r) return null;
+  const statuses = ['Assigned','In Progress','Overdue','Escalated','Completed'];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <button onClick={onBack} style={{
+        background: 'transparent', border: 0, color: '#845EC2', fontSize: 13, fontWeight: 800,
+        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: 0, alignSelf: 'flex-start',
+      }}>
+        <Icon name="chevronLeft" size={16} color="#845EC2" /> Back to Actions
+      </button>
+      <Card style={{ padding: 18, borderLeft: '4px solid #00C9A7', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <Avatar initials={r.initials} seed={r.id} size={44} isResident />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 20, fontWeight: 900, color: '#1C192E' }}>{action.type}</div>
+            <div style={{ fontSize: 12, color: '#6A7282', marginTop: 3 }}>{r.name} · Room {r.room} · {r.unit}</div>
+          </div>
+          <ActionStatusBadge status={action.status} />
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <DomainChip domainId={action.domain} />
+          <Chip tone={action.priority === 'High' ? 'critical' : 'watch'}>{action.priority}</Chip>
+          <Chip tone="todo">{action.due}</Chip>
+        </div>
+        <div style={{ fontSize: 14, color: '#1C192E', lineHeight: '20px' }}>{action.reason}</div>
+        <div style={{ padding: 12, border: '1px solid #EEEEEE', borderRadius: 10, background: '#FAFAFC' }}>
+          <div style={{ fontSize: 11, color: '#99A1AF', fontWeight: 900, letterSpacing: '0.06em' }}>OWNER</div>
+          <div style={{ fontSize: 14, fontWeight: 900, color: '#1C192E', marginTop: 4 }}>{action.owner}</div>
+          <div style={{ fontSize: 12, color: '#6A7282', marginTop: 2 }}>{action.ownerRole}</div>
+        </div>
+      </Card>
+
+      <ContinuityThreadPanel r={r} actions={actions} />
+      <EvidenceSummaryPanel r={r} />
+
+      <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ fontSize: 15, fontWeight: 900, color: '#1C192E' }}>Update Operational State</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {statuses.map(status => (
+            <button key={status} onClick={() => onUpdateActionStatus(action.id, status)} style={{
+              border: `1px solid ${action.status === status ? '#00C9A7' : '#E5E7EB'}`,
+              background: action.status === status ? '#E7F5EF' : '#fff',
+              color: action.status === status ? '#00795E' : '#52525B',
+              borderRadius: 9999, padding: '8px 11px', font: '800 12px Inter', cursor: 'pointer',
+            }}>{status}</button>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <Button variant="secondary" icon="user" onClick={() => onOpenResident(r.id)}>Open Resident</Button>
+          <Button variant="primary" icon="check" onClick={() => onOpenClosure(action.id)}>Close Risk</Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function ClosurePage({ actionId, actions, onBack, onCloseRisk }) {
+  const action = actions.find(a => a.id === actionId);
+  const r = action && RESIDENTS.find(x => x.id === action.residentId);
+  const [closure, setClosure] = useState('Intervention completed');
+  const [reviewed, setReviewed] = useState(action ? action.reason : '');
+  const [taken, setTaken] = useState(action ? action.type : '');
+  const [notified, setNotified] = useState('Provider notification pending confirmation');
+  const [riskRemains, setRiskRemains] = useState(true);
+  const [followUp, setFollowUp] = useState('Next shift');
+  if (!action || !r) return null;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <button onClick={onBack} style={{
+        background: 'transparent', border: 0, color: '#845EC2', fontSize: 13, fontWeight: 800,
+        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: 0, alignSelf: 'flex-start',
+      }}>
+        <Icon name="chevronLeft" size={16} color="#845EC2" /> Back to Action
+      </button>
+      <PageHeader title="Closure View" subtitle={`${r.name} · close the operational loop with rationale and follow-up.`} />
+      <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <ClosureField label="Closure option">
+          <select value={closure} onChange={e => setClosure(e.target.value)} style={selectStyle}>
+            {['Reviewed — no intervention needed','Intervention completed','Escalated to provider','Monitoring continued','Deferred with rationale','Unresolved'].map(x => <option key={x}>{x}</option>)}
+          </select>
+        </ClosureField>
+        <ClosureField label="What was reviewed"><textarea value={reviewed} onInput={e => setReviewed(e.target.value)} style={textareaStyle} /></ClosureField>
+        <ClosureField label="What action was taken"><textarea value={taken} onInput={e => setTaken(e.target.value)} style={textareaStyle} /></ClosureField>
+        <ClosureField label="Provider/family notification"><textarea value={notified} onInput={e => setNotified(e.target.value)} style={textareaStyle} /></ClosureField>
+        <ClosureField label="Resident remains at risk">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <Button variant={riskRemains ? 'lavender' : 'secondary'} onClick={() => setRiskRemains(true)}>Yes</Button>
+            <Button variant={!riskRemains ? 'lavender' : 'secondary'} onClick={() => setRiskRemains(false)}>No</Button>
+          </div>
+        </ClosureField>
+        <ClosureField label="Next follow-up time"><Input value={followUp} onChange={e => setFollowUp(e.target.value)} /></ClosureField>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <Button variant="secondary" icon="activity" onClick={() => onCloseRisk(action.id, { closure: 'Monitoring continued', reviewed, taken, notified, riskRemains: true, followUp })}>Continue Monitoring</Button>
+          <Button variant="primary" icon="check" onClick={() => onCloseRisk(action.id, { closure, reviewed, taken, notified, riskRemains, followUp })}>Close Risk</Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function ClosureField({ label, children }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      <div style={{ fontSize: 11, color: '#6A7282', fontWeight: 900, letterSpacing: '0.06em' }}>{label.toUpperCase()}</div>
+      {children}
+    </div>
+  );
+}
+
+const textareaStyle = { minHeight: 82, border: '1px solid #E5E7EB', borderRadius: 8, padding: 10, font: '13px Inter', color: '#1C192E', resize: 'vertical', outline: 0 };
+const selectStyle = { height: 42, border: '1px solid #E5E7EB', borderRadius: 8, padding: '0 10px', font: '13px Inter', color: '#1C192E', background: '#fff' };
+
+Object.assign(window, { ActionsPage, OperationalActionCard, ActionDetailPage, ClosurePage });
+
+
 // ---- app/huddle.jsx ----
-// Huddle page — facility-wide huddle history + saved AI summaries
+// Huddle page — facility-wide huddle history + saved summaries
 
 const HUDDLE_HISTORY = [
   {
@@ -3274,7 +5370,7 @@ function HuddlePage({ user, onOpenResident }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: isPhone ? 20 : 28 }}>
       <PageHeader
         title="Huddle"
-        subtitle="Every shift handoff, clinical round, and care plan meeting in one place. AI captures the agenda, transcribes the call, and posts the summary to each resident's chart automatically."
+        subtitle="Every shift handoff, clinical round, and care plan meeting in one place, with summaries and follow-ups attached to resident charts."
         actions={[
           <Button key="start" variant="lavender" icon="video" onClick={() => setShowStart(true)}>Start Huddle</Button>,
         ]}
@@ -3368,7 +5464,7 @@ function HuddleRow({ h, onClick }) {
             {h.duration}
           </div>
           <div style={{ fontSize: 12, color: '#6A7282', display: 'flex', alignItems: 'center', gap: 6, minWidth: 100 }}>
-            <Icon name="sparkles" size={12} color="#845EC2" />
+            <Icon name="check" size={12} color="#845EC2" />
             {h.actions.length} action{h.actions.length === 1 ? '' : 's'}
           </div>
           {!isPhone && <Icon name="chevronRight" size={18} color="#99A1AF" />}
@@ -3416,8 +5512,8 @@ function HuddleDetail({ huddle: h, onBack, onOpenResident }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <Card style={{ padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <Icon name="sparkles" size={14} color="#845EC2" />
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#67568C', letterSpacing: '0.04em' }}>AI SUMMARY</span>
+              <Icon name="fileText" size={14} color="#845EC2" />
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#67568C', letterSpacing: '0.04em' }}>SUMMARY</span>
             </div>
             <div style={{ fontSize: 14, lineHeight: '21px', color: '#1C192E' }}>{h.summary}</div>
           </Card>
@@ -3498,181 +5594,501 @@ Object.assign(window, { HuddlePage });
 
 
 // ---- app/messages-fab.jsx ----
-// Floating action button for messages — global access from any page
+// Messages page - full-height care-team, huddle, and tagged resident threads
 
 const RECENT_THREADS_SEED = [
-  { id: 't1', userId: 'u11', residentId: 'r1', preview: 'Reviewing labs now — back to you in 5.', time: '4m', unread: 2 },
-  { id: 't2', userId: 'u9', residentId: 'r5', preview: 'New wound photo uploaded.', time: '22m', unread: 1 },
-  { id: 't3', userId: 'u4', residentId: 'r2', preview: 'Cultures drawn, awaiting results.', time: '1h', unread: 0 },
-  { id: 't4', userId: 'u10', residentId: 'r3', preview: 'Approved — restart at 5mg AM.', time: '2h', unread: 0 },
-  { id: 't5', userId: 'u14', residentId: 'r7', preview: 'PT eval scheduled for tomorrow 10am.', time: '4h', unread: 0 },
+  { id: 't1', kind: 'direct', userId: 'u11', residentId: 'r1', preview: 'Reviewing labs now - back to you in 5.', time: '4m', unread: 2 },
+  { id: 't2', kind: 'direct', userId: 'u9', residentId: 'r5', preview: 'New wound photo uploaded.', time: '22m', unread: 1 },
+  { id: 't3', kind: 'direct', userId: 'u4', residentId: 'r2', preview: 'Cultures drawn, awaiting results.', time: '1h', unread: 0 },
+  { id: 't4', kind: 'direct', userId: 'u10', residentId: 'r3', preview: 'Approved - restart at 5mg AM.', time: '2h', unread: 0 },
+  { id: 't5', kind: 'direct', userId: 'u14', residentId: 'r7', preview: 'PT eval scheduled for tomorrow 10am.', time: '4h', unread: 0 },
 ];
 
-function MessagesFab({ onOpenChat }) {
-  const [open, setOpen] = useState(false);
-  const [q, setQ] = useState('');
-  const [tab, setTab] = useState('threads'); // threads | new
-  const unread = RECENT_THREADS_SEED.reduce((n, t) => n + t.unread, 0);
+const HUDDLE_MESSAGE_THREADS = [
+  {
+    id: 'huddle-h1',
+    kind: 'huddle',
+    title: 'Morning shift huddle',
+    residentIds: ['r1','r2','r3'],
+    participants: ['u1','u2','u3','u4','u5','u8','u9','u11'],
+    preview: 'Open items: BP recheck, sepsis pathway confirmation, INR follow-up.',
+    time: '18m',
+    unread: 3,
+  },
+  {
+    id: 'huddle-h2',
+    kind: 'huddle',
+    title: 'Wound care rounds',
+    residentIds: ['r1','r5','r8'],
+    participants: ['u9','u4','u5','u11','u18'],
+    preview: 'Photos uploaded. Wound nurse requesting nutrition review for two residents.',
+    time: '1h',
+    unread: 1,
+  },
+  {
+    id: 'huddle-h3',
+    kind: 'huddle',
+    title: 'West LTC safety huddle',
+    residentIds: ['r2','r8','r10'],
+    participants: ['u2','u3','u4','u6','u15'],
+    preview: 'Falls and staffing-sensitive follow-through for evening shift.',
+    time: 'Yesterday',
+    unread: 0,
+  },
+];
 
-  const threads = RECENT_THREADS_SEED.map(t => ({
+function messageUnreadCount() {
+  return [...RECENT_THREADS_SEED, ...HUDDLE_MESSAGE_THREADS].reduce((n, t) => n + (t.unread || 0), 0);
+}
+
+function hydrateDirectThread(t) {
+  return {
     ...t,
     user: TEST_USERS.find(u => u.id === t.userId),
     resident: RESIDENTS.find(r => r.id === t.residentId),
-  })).filter(t => t.user && t.resident);
+  };
+}
 
-  const filtered = threads.filter(t =>
-    !q || t.user.name.toLowerCase().includes(q.toLowerCase())
-       || t.resident.name.toLowerCase().includes(q.toLowerCase())
-       || t.preview.toLowerCase().includes(q.toLowerCase())
+function hydrateHuddleThread(t) {
+  return {
+    ...t,
+    users: t.participants.map(id => TEST_USERS.find(u => u.id === id)).filter(Boolean),
+    residents: t.residentIds.map(id => RESIDENTS.find(r => r.id === id)).filter(Boolean),
+  };
+}
+
+function MessagesPage({ user, onOpenThread, onOpenChat, taggedResidentId }) {
+  const [q, setQ] = useState('');
+  const [tab, setTab] = useState('threads');
+  const [showStartHuddle, setShowStartHuddle] = useState(false);
+  const unread = messageUnreadCount();
+  const taggedResident = taggedResidentId ? RESIDENTS.find(r => r.id === taggedResidentId) : null;
+
+  const directThreads = RECENT_THREADS_SEED.map(hydrateDirectThread).filter(t => t.user && t.resident);
+  const huddleThreads = HUDDLE_MESSAGE_THREADS.map(hydrateHuddleThread);
+  const allUsers = TEST_USERS.filter(u => u.id !== 'u1');
+  const lowerQ = q.trim().toLowerCase();
+
+  const filteredDirect = directThreads.filter(t =>
+    !lowerQ || t.user.name.toLowerCase().includes(lowerQ)
+      || t.resident.name.toLowerCase().includes(lowerQ)
+      || t.preview.toLowerCase().includes(lowerQ)
+  );
+  const filteredHuddles = huddleThreads.filter(t =>
+    !lowerQ || t.title.toLowerCase().includes(lowerQ)
+      || t.preview.toLowerCase().includes(lowerQ)
+      || t.residents.some(r => r.name.toLowerCase().includes(lowerQ))
+      || t.users.some(u => u.name.toLowerCase().includes(lowerQ))
+  );
+  const filteredUsers = allUsers.filter(u =>
+    !lowerQ || u.name.toLowerCase().includes(lowerQ) || u.role.toLowerCase().includes(lowerQ)
   );
 
-  const allUsers = TEST_USERS.filter(u => u.id !== 'u1');
-  const filteredUsers = allUsers.filter(u => !q || u.name.toLowerCase().includes(q.toLowerCase()) || u.role.toLowerCase().includes(q.toLowerCase()));
-
-  function pickThread(t) {
-    onOpenChat(t.resident, t.user);
-    setOpen(false);
-    setQ('');
-  }
   function pickUser(u) {
-    // open chat with first critical resident as default tag
-    const r = RESIDENTS.find(x => x.risk === 'critical') || RESIDENTS[0];
+    const r = taggedResident || RESIDENTS.find(x => x.risk === 'critical') || RESIDENTS[0];
     onOpenChat(r, u);
-    setOpen(false);
     setQ('');
   }
 
   return (
-    <>
-      <button onClick={() => setOpen(o => !o)} title="Messages" style={{
-        position: 'fixed', right: 24, bottom: 24, zIndex: 70,
-        width: 56, height: 56, borderRadius: 9999, border: 0, cursor: 'pointer',
-        background: '#845EC2', color: '#fff',
-        boxShadow: '0 8px 24px rgba(132,94,194,0.4), 0 2px 6px rgba(0,0,0,0.1)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'transform 120ms',
-      }}
-      onMouseDown={e => e.currentTarget.style.transform = 'scale(0.95)'}
-      onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
-      onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
-        <Icon name="message" size={24} color="#fff" />
-        {unread > 0 && (
-          <span style={{
-            position: 'absolute', top: 4, right: 4, minWidth: 20, height: 20, padding: '0 6px',
-            borderRadius: 9999, background: '#FF6E6C', color: '#fff', fontSize: 11, fontWeight: 700,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff',
-          }}>{unread}</span>
-        )}
-      </button>
+    <div style={{ height: 'calc(100vh - 86px)', minHeight: 620, display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ padding: '12px 14px', borderBottom: '1px solid #EEEEEE', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 18, fontWeight: 900, color: '#1C192E' }}>Messages</div>
+          <div style={{ fontSize: 12, color: '#6A7282', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {taggedResident ? `${taggedResident.name} is tagged for new conversations.` : 'Care-team and huddle conversations with resident context preserved.'}
+          </div>
+        </div>
+        {unread > 0 && <Chip tone="high" dot>{unread} unread</Chip>}
+        <Button size="sm" variant="lavender" icon="video" onClick={() => setShowStartHuddle(true)}>Start Huddle</Button>
+      </div>
 
-      {open && (
-        <>
-          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 65 }} />
-          <div style={{
-            position: 'fixed', right: 24, bottom: 92, zIndex: 70,
-            width: 360, maxHeight: 540, background: '#fff',
-            borderRadius: 14, border: '1px solid #E5E7EB',
-            boxShadow: '0 20px 40px -10px rgba(0,0,0,0.18), 0 8px 16px -8px rgba(0,0,0,0.1)',
-            display: 'flex', flexDirection: 'column', overflow: 'hidden',
-          }}>
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid #EEEEEE', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontWeight: 700, fontSize: 15, color: '#1C192E' }}>Messages</div>
-              <IconButton icon="x" size={26} onClick={() => setOpen(false)} />
-            </div>
-
-            <div style={{ padding: '10px 16px 0', display: 'flex', gap: 4, borderBottom: '1px solid #EEEEEE' }}>
-              {[
-                { id: 'threads', label: 'Recent', badge: unread },
-                { id: 'new', label: 'New message' },
-              ].map(t => {
-                const active = tab === t.id;
-                return (
-                  <button key={t.id} onClick={() => { setTab(t.id); setQ(''); }} style={{
-                    background: 'transparent', border: 0, padding: '8px 12px', cursor: 'pointer',
-                    fontSize: 13, fontWeight: 600,
-                    color: active ? '#845EC2' : '#6A7282',
-                    borderBottom: `2px solid ${active ? '#845EC2' : 'transparent'}`,
-                    marginBottom: -1, display: 'flex', alignItems: 'center', gap: 6,
-                  }}>
-                    {t.label}
-                    {t.badge > 0 && (
-                      <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9999, background: '#FF6E6C', color: '#fff', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{t.badge}</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div style={{ padding: 12, borderBottom: '1px solid #EEEEEE' }}>
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', display: 'flex' }}>
-                  <Icon name="search" size={14} color="#99A1AF" />
-                </span>
-                <input
-                  autoFocus
-                  value={q}
-                  onInput={e => setQ(e.target.value)}
-                  placeholder={tab === 'threads' ? 'Search messages…' : 'Search team by name or role…'}
-                  style={{
-                    width: '100%', height: 36, padding: '0 12px 0 32px',
-                    border: '1px solid #E5E7EB', borderRadius: 8, font: '13px Inter',
-                    outline: 0, color: '#1C192E', background: '#FAFAFA',
-                  }}
-                />
-              </div>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-              {tab === 'threads' && filtered.map(t => (
-                <button key={t.id} onClick={() => pickThread(t)} style={{
-                  width: '100%', display: 'flex', gap: 12, alignItems: 'center',
-                  padding: '12px 16px', border: 0, background: t.unread ? '#FAFAFC' : '#fff',
-                  borderBottom: '1px solid #F4F4F5', cursor: 'pointer', textAlign: 'left',
-                }}>
-                  <Avatar initials={t.user.initials} seed={t.user.id} size={36} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1C192E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.user.name}</div>
-                      <div style={{ fontSize: 11, color: '#99A1AF', flexShrink: 0 }}>{t.time}</div>
-                    </div>
-                    <div style={{ fontSize: 11, color: '#67568C', fontWeight: 600, marginTop: 1 }}>Re: {t.resident.name} · Rm {t.resident.room}</div>
-                    <div style={{ fontSize: 12, color: '#6A7282', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.preview}</div>
-                  </div>
-                  {t.unread > 0 && (
-                    <span style={{ width: 18, height: 18, borderRadius: 9999, background: '#845EC2', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{t.unread}</span>
-                  )}
-                </button>
-              ))}
-              {tab === 'threads' && filtered.length === 0 && (
-                <div style={{ padding: 32, textAlign: 'center', color: '#6A7282', fontSize: 13 }}>No messages match.</div>
-              )}
-
-              {tab === 'new' && filteredUsers.map(u => (
-                <button key={u.id} onClick={() => pickUser(u)} style={{
-                  width: '100%', display: 'flex', gap: 12, alignItems: 'center',
-                  padding: '10px 16px', border: 0, background: '#fff',
-                  borderBottom: '1px solid #F4F4F5', cursor: 'pointer', textAlign: 'left',
-                }}>
-                  <Avatar initials={u.initials} seed={u.id} size={32} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#1C192E' }}>{u.name}</div>
-                    <div style={{ fontSize: 11, color: '#6A7282' }}>{u.role}</div>
-                  </div>
-                  <Icon name="chevronRight" size={14} color="#99A1AF" />
-                </button>
-              ))}
-              {tab === 'new' && filteredUsers.length === 0 && (
-                <div style={{ padding: 32, textAlign: 'center', color: '#6A7282', fontSize: 13 }}>No team members match.</div>
-              )}
+      {taggedResident && (
+        <div style={{ padding: '10px 14px', borderBottom: '1px solid #EEEEEE', display: 'flex', gap: 10, alignItems: 'center', background: '#FAFAFC' }}>
+          <Avatar initials={taggedResident.initials} seed={taggedResident.id} size={34} isResident />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 900, color: '#67568C' }}>Tagged resident</div>
+            <div style={{ fontSize: 12, color: '#1C192E', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {taggedResident.name} - Rm {taggedResident.room} - MRN {taggedResident.mrn}
             </div>
           </div>
-        </>
+          <RiskBadge level={taggedResident.risk} score={taggedResident.score} compact />
+        </div>
       )}
-    </>
+
+      <div style={{ padding: '8px 10px 0', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 4, borderBottom: '1px solid #EEEEEE' }}>
+        {[
+          { id: 'threads', label: 'Threads', badge: RECENT_THREADS_SEED.reduce((n, t) => n + t.unread, 0) },
+          { id: 'huddles', label: 'Huddles', badge: HUDDLE_MESSAGE_THREADS.reduce((n, t) => n + t.unread, 0) },
+          { id: 'new', label: 'New' },
+        ].map(t => {
+          const active = tab === t.id;
+          return (
+            <button key={t.id} onClick={() => { setTab(t.id); setQ(''); }} style={{
+              minWidth: 0,
+              background: 'transparent',
+              border: 0,
+              padding: '9px 8px',
+              cursor: 'pointer',
+              fontSize: 13,
+              fontWeight: 900,
+              color: active ? '#00795E' : '#6A7282',
+              borderBottom: `2px solid ${active ? '#00C9A7' : 'transparent'}`,
+              marginBottom: -1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+            }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.label}</span>
+              {t.badge > 0 && (
+                <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9999, background: '#FF6E6C', color: '#fff', fontSize: 10, fontWeight: 900, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{t.badge}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ padding: 12, borderBottom: '1px solid #EEEEEE' }}>
+        <div style={{ position: 'relative' }}>
+          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', display: 'flex' }}>
+            <Icon name="search" size={14} color="#99A1AF" />
+          </span>
+          <input
+            value={q}
+            onInput={e => setQ(e.target.value)}
+            placeholder={tab === 'new' ? 'Search team by name or role...' : 'Search messages, huddles, residents...'}
+            style={{
+              width: '100%', height: 38, padding: '0 12px 0 32px',
+              border: '1px solid #E5E7EB', borderRadius: 8, font: '13px Inter',
+              outline: 0, color: '#1C192E', background: '#FAFAFA',
+            }}
+          />
+        </div>
+      </div>
+
+      <div style={{ overflowY: 'auto', flex: 1, minHeight: 0, background: '#fff' }}>
+        {tab === 'threads' && filteredDirect.map(t => (
+          <DirectThreadRow key={t.id} t={t} onClick={() => onOpenThread(t.id)} />
+        ))}
+        {tab === 'threads' && filteredDirect.length === 0 && <EmptyMessages text="No messages match." />}
+
+        {tab === 'huddles' && filteredHuddles.map(t => (
+          <HuddleThreadRow key={t.id} t={t} onClick={() => onOpenThread(t.id)} />
+        ))}
+        {tab === 'huddles' && filteredHuddles.length === 0 && <EmptyMessages text="No huddle threads match." />}
+
+        {tab === 'new' && filteredUsers.map(u => (
+          <button key={u.id} onClick={() => pickUser(u)} style={{
+            width: '100%', display: 'flex', gap: 12, alignItems: 'center',
+            padding: '12px 16px', border: 0, background: '#fff',
+            borderBottom: '1px solid #F4F4F5', cursor: 'pointer', textAlign: 'left',
+          }}>
+            <Avatar initials={u.initials} seed={u.id} size={34} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: '#1C192E' }}>{u.name}</div>
+              <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2 }}>{u.role}</div>
+            </div>
+            <Icon name="chevronRight" size={14} color="#99A1AF" />
+          </button>
+        ))}
+        {tab === 'new' && filteredUsers.length === 0 && <EmptyMessages text="No team members match." />}
+      </div>
+
+      {showStartHuddle && <HuddleModal user={user || TEST_USERS[0]} onClose={() => setShowStartHuddle(false)} onOpenResident={() => {}} />}
+    </div>
   );
 }
 
-Object.assign(window, { MessagesFab });
+function DirectThreadRow({ t, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      width: '100%', display: 'flex', gap: 12, alignItems: 'center',
+      padding: '13px 16px', border: 0, background: t.unread ? '#FAFAFC' : '#fff',
+      borderBottom: '1px solid #F4F4F5', cursor: 'pointer', textAlign: 'left',
+    }}>
+      <Avatar initials={t.user.initials} seed={t.user.id} size={38} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 900, color: '#1C192E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.user.name}</div>
+          <div style={{ fontSize: 11, color: '#99A1AF', flexShrink: 0 }}>{t.time}</div>
+        </div>
+        <div style={{ fontSize: 11, color: '#67568C', fontWeight: 800, marginTop: 2 }}>Re: {t.resident.name} - Rm {t.resident.room}</div>
+        <div style={{ fontSize: 12, color: '#6A7282', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.preview}</div>
+      </div>
+      {t.unread > 0 && <UnreadBadge count={t.unread} />}
+    </button>
+  );
+}
+
+function HuddleThreadRow({ t, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      width: '100%', display: 'flex', gap: 12, alignItems: 'center',
+      padding: '13px 16px', border: 0, background: t.unread ? '#FAFAFC' : '#fff',
+      borderBottom: '1px solid #F4F4F5', cursor: 'pointer', textAlign: 'left',
+    }}>
+      <div style={{ display: 'flex', marginLeft: 2, flexShrink: 0 }}>
+        {t.users.slice(0, 3).map((u, i) => (
+          <div key={u.id} style={{ marginLeft: i ? -10 : 0, border: '2px solid #fff', borderRadius: 9999 }}>
+            <Avatar initials={u.initials} seed={u.id} size={34} />
+          </div>
+        ))}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 900, color: '#1C192E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+          <div style={{ fontSize: 11, color: '#99A1AF', flexShrink: 0 }}>{t.time}</div>
+        </div>
+        <div style={{ fontSize: 11, color: '#00795E', fontWeight: 900, marginTop: 2 }}>
+          {t.users.length} participants - {t.residents.map(r => r.name).join(', ')}
+        </div>
+        <div style={{ fontSize: 12, color: '#6A7282', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.preview}</div>
+      </div>
+      {t.unread > 0 && <UnreadBadge count={t.unread} />}
+    </button>
+  );
+}
+
+function UnreadBadge({ count }) {
+  return (
+    <span style={{ width: 19, height: 19, borderRadius: 9999, background: '#845EC2', color: '#fff', fontSize: 10, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{count}</span>
+  );
+}
+
+function EmptyMessages({ text }) {
+  return <div style={{ padding: 36, textAlign: 'center', color: '#6A7282', fontSize: 13 }}>{text}</div>;
+}
+
+function MessageThreadPage({ threadId, onBack, onOpenChat }) {
+  const directSeed = RECENT_THREADS_SEED.find(t => t.id === threadId);
+  const huddleSeed = HUDDLE_MESSAGE_THREADS.find(t => t.id === threadId);
+  const isHuddle = !!huddleSeed;
+  const seed = directSeed || huddleSeed || RECENT_THREADS_SEED[0];
+  const direct = directSeed ? hydrateDirectThread(directSeed) : null;
+  const huddle = huddleSeed ? hydrateHuddleThread(huddleSeed) : null;
+  const user = direct ? direct.user : huddle.users[0];
+  const resident = direct ? direct.resident : huddle.residents[0];
+  const participants = isHuddle ? huddle.users : [user];
+  const [draft, setDraft] = useState('');
+  const [messages, setMessages] = useState(isHuddle ? [
+    { id: 'm1', from: 'them', user: participants[1]?.name || 'Team', body: huddle.preview, time: seed.time },
+    { id: 'm2', from: 'me', user: 'Sarah Chen', body: 'Please keep the open action owner and follow-up time visible in this thread.', time: 'now' },
+    { id: 'm3', from: 'them', user: participants[2]?.name || 'Team', body: 'Acknowledged. I will update once the follow-up is complete.', time: 'now' },
+  ] : [
+    { id: 'm1', from: 'them', user: user.name, body: `I am reviewing ${resident.name}'s latest documentation now.`, time: seed.time },
+    { id: 'm2', from: 'me', user: 'Sarah Chen', body: 'The baseline change was flagged. Can you confirm what changed clinically?', time: 'now' },
+    { id: 'm3', from: 'them', user: user.name, body: seed.preview, time: seed.time },
+  ]);
+
+  function send() {
+    if (!draft.trim()) return;
+    setMessages(m => [...m, { id: 'm' + Date.now(), from: 'me', user: 'Sarah Chen', body: draft, time: 'now' }]);
+    setDraft('');
+  }
+
+  return (
+    <div style={{ height: 'calc(100vh - 86px)', minHeight: 620, display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ padding: '10px 12px', borderBottom: '1px solid #EEEEEE', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <IconButton icon="chevronLeft" title="Back to Messages" onClick={onBack} />
+        {isHuddle ? (
+          <div style={{ display: 'flex', marginLeft: -2, flexShrink: 0 }}>
+            {participants.slice(0, 3).map((u, i) => (
+              <div key={u.id} style={{ marginLeft: i ? -10 : 0, border: '2px solid #fff', borderRadius: 9999 }}>
+                <Avatar initials={u.initials} seed={u.id} size={36} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Avatar initials={user.initials} seed={user.id} size={38} />
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 900, color: '#1C192E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {isHuddle ? huddle.title : user.name}
+          </div>
+          <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {isHuddle ? `${participants.length} participants - ${huddle.residents.map(r => r.name).join(', ')}` : `${user.role} - re: ${resident.name}`}
+          </div>
+        </div>
+        {isHuddle ? (
+          <Button size="sm" variant="lavender" icon="video" onClick={() => emitToast('Opening huddle room.', 'info')}>Join</Button>
+        ) : (
+          <Button variant="secondary" size="sm" icon="message" onClick={() => onOpenChat(resident, user)}>Live Chat</Button>
+        )}
+      </div>
+
+      <div style={{ padding: '9px 12px', borderBottom: '1px solid #EEEEEE', display: 'flex', gap: 10, alignItems: 'center', background: '#FAFAFC' }}>
+        <Avatar initials={resident.initials} seed={resident.id} size={34} isResident />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: '#67568C' }}>{isHuddle ? 'Primary resident context' : 'Tagged resident'}</div>
+          <div style={{ fontSize: 12, color: '#1C192E', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {resident.name} - Rm {resident.room} - MRN {resident.mrn}
+          </div>
+        </div>
+        <RiskBadge level={resident.risk} score={resident.score} compact />
+      </div>
+
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 12, background: '#FAFAFA', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ alignSelf: 'center', fontSize: 11, color: '#67568C', background: '#F5F2FD', padding: '5px 10px', borderRadius: 9999 }}>
+          Resident context and follow-up state preserved in this thread
+        </div>
+        {messages.map(m => (
+          <div key={m.id} style={{ alignSelf: m.from === 'me' ? 'flex-end' : 'flex-start', maxWidth: '86%' }}>
+            {isHuddle && m.from !== 'me' && <div style={{ fontSize: 10, color: '#6A7282', margin: '0 0 3px 4px', fontWeight: 800 }}>{m.user}</div>}
+            <div style={{
+              padding: '9px 12px', borderRadius: m.from === 'me' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+              background: m.from === 'me' ? '#845EC2' : '#fff', color: m.from === 'me' ? '#fff' : '#1C192E',
+              border: m.from === 'me' ? 0 : '1px solid #E5E7EB',
+              fontSize: 13, lineHeight: '18px',
+            }}>{m.body}</div>
+            <div style={{ fontSize: 10, color: '#99A1AF', marginTop: 3, textAlign: m.from === 'me' ? 'right' : 'left' }}>{m.time}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ padding: 10, borderTop: '1px solid #EEEEEE', display: 'flex', gap: 8, alignItems: 'center', background: '#fff' }}>
+        <input value={draft} onInput={e => setDraft(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && send()}
+          placeholder={isHuddle ? 'Message the huddle...' : `Reply to ${user.short || user.name.split(' ')[0]}...`}
+          style={{ flex: 1, minWidth: 0, border: '1px solid #E5E7EB', borderRadius: 9999, padding: '10px 14px', font: '13px Inter', outline: 0 }} />
+        <button onClick={send} style={{ width: 38, height: 38, borderRadius: 9999, border: 0, background: '#845EC2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Icon name="send" size={15} color="#fff" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MessagesFab() {
+  return null;
+}
+
+Object.assign(window, { MessagesPage, MessageThreadPage, MessagesFab, RECENT_THREADS_SEED, HUDDLE_MESSAGE_THREADS, messageUnreadCount });
+
+
+// ---- app/profile.jsx ----
+// Profile + security settings
+
+function ProfilePage({ user, onLogout }) {
+  const [twoFactor, setTwoFactor] = useState(true);
+  const [method, setMethod] = useState('authenticator');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const v = useViewport();
+  const isPhone = v.isMobile;
+
+  function savePassword() {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      emitToast('Complete all password fields first.', 'warning');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      emitToast('New password and confirmation do not match.', 'warning');
+      return;
+    }
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    emitToast('Password change saved.');
+  }
+
+  function saveTwoFactor() {
+    emitToast(twoFactor ? 'Two-factor settings updated.' : 'Two-factor is currently off.', twoFactor ? 'success' : 'warning');
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <PageHeader
+        title="Profile"
+        subtitle="Account, security, and notification controls for your care-team workspace."
+        actions={[
+          <Button key="logout" variant="secondary" icon="logout" onClick={onLogout}>Sign Out</Button>,
+        ]}
+      />
+
+      <Card style={{ padding: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+        <Avatar initials={user.initials} seed={user.id} size={52} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#1C192E' }}>{user.name}</div>
+          <div style={{ fontSize: 13, color: '#6A7282', marginTop: 2 }}>{user.role}</div>
+          <div style={{ fontSize: 12, color: '#99A1AF', marginTop: 4 }}>{FACILITY.name}</div>
+        </div>
+        <Chip tone="signed" dot>Active</Chip>
+      </Card>
+
+      <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
+        <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 800 }}>Change Password</div>
+            <div style={{ fontSize: 12, color: '#6A7282', marginTop: 3 }}>Update your login password for this device and browser session.</div>
+          </div>
+          <SecurityField label="Current password" type="password" value={currentPassword} onInput={setCurrentPassword} />
+          <SecurityField label="New password" type="password" value={newPassword} onInput={setNewPassword} />
+          <SecurityField label="Confirm new password" type="password" value={confirmPassword} onInput={setConfirmPassword} />
+          <Button variant="primary" icon="shield" onClick={savePassword}>Save Password</Button>
+        </Card>
+
+        <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800 }}>Two-factor Authentication</div>
+              <div style={{ fontSize: 12, color: '#6A7282', marginTop: 3 }}>Require a second step before sensitive patient data opens.</div>
+            </div>
+            <button onClick={() => setTwoFactor(v => !v)} style={{
+              width: 50, height: 28, borderRadius: 9999, border: 0, cursor: 'pointer',
+              background: twoFactor ? '#00C9A7' : '#D1D5DC', padding: 3, display: 'flex',
+              justifyContent: twoFactor ? 'flex-end' : 'flex-start', flexShrink: 0,
+            }}>
+              <span style={{ width: 22, height: 22, borderRadius: 9999, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.18)' }} />
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {[
+              { id: 'authenticator', label: 'Authenticator', icon: 'shield' },
+              { id: 'sms', label: 'SMS', icon: 'message' },
+            ].map(m => {
+              const active = method === m.id;
+              return (
+                <button key={m.id} onClick={() => setMethod(m.id)} style={{
+                  border: `1px solid ${active ? '#845EC2' : '#E5E7EB'}`, background: active ? '#F5F2FD' : '#fff',
+                  borderRadius: 8, padding: '12px 8px', display: 'flex', flexDirection: 'column', gap: 6,
+                  alignItems: 'center', cursor: 'pointer', font: '700 12px Inter', color: active ? '#67568C' : '#52525B',
+                }}>
+                  <Icon name={m.icon} size={18} color={active ? '#845EC2' : '#6A7282'} />
+                  {m.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ padding: 12, borderRadius: 8, background: '#FAFAFA', border: '1px solid #EEEEEE' }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#1C192E' }}>Backup codes</div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+              {['A9F2', 'K7Q4', 'M3L8', 'R6T1'].map(code => <Chip key={code} tone="todo">{code}</Chip>)}
+            </div>
+          </div>
+          <Button variant="primary" icon="check" onClick={saveTwoFactor}>Save 2FA</Button>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function SecurityField({ label, type, value, onInput }) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span style={{ fontSize: 12, fontWeight: 800, color: '#52525B' }}>{label}</span>
+      <input type={type} value={value} onInput={e => onInput(e.target.value)} style={{
+        height: 40, border: '1px solid #E5E7EB', borderRadius: 8, padding: '0 12px',
+        font: '13px Inter', color: '#1C192E', outline: 0, background: '#fff',
+      }} />
+    </label>
+  );
+}
+
+Object.assign(window, { ProfilePage });
 
 
 // ---- app/app.jsx ----
@@ -3682,14 +6098,31 @@ function App() {
   const [user, setUser] = useState(null);
   const [route, setRoute] = useState({ page: 'home' });
   const [chats, setChats] = useState([]);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [actions, setActions] = useState(OPERATIONAL_ACTIONS_SEED);
   const isCompact = true;
 
   if (!user) return <LoginScreen onSignIn={u => { setUser(u); setRoute({ page: 'home' }); }} />;
 
   function onNav(page) { setRoute({ page }); window.scrollTo(0, 0); }
+  function onOpenMenu() { setRoute({ page: 'menu' }); window.scrollTo(0, 0); }
+  function onSmartNav(page) {
+    const residentId = route.residentId;
+    const contextual = page === 'ai' && residentId;
+    setRoute(contextual ? { page, residentId } : { page });
+    window.scrollTo(0, 0);
+  }
   function onOpenResident(id) { setRoute({ page: 'resident', residentId: id }); window.scrollTo(0, 0); }
   function onOpenIssue(residentId, issueId) { setRoute({ page: 'change', residentId, issueId }); window.scrollTo(0, 0); }
+  function onOpenAction(actionId) { setRoute({ page: 'action', actionId }); window.scrollTo(0, 0); }
+  function onOpenClosure(actionId) { setRoute({ page: 'closure', actionId }); window.scrollTo(0, 0); }
+  function onOpenMessageThread(threadId) {
+    setRoute(route.residentId ? { page: 'messageDetail', threadId, residentId: route.residentId } : { page: 'messageDetail', threadId });
+    window.scrollTo(0, 0);
+  }
+  function onBackToMessages() {
+    setRoute(route.residentId ? { page: 'messages', residentId: route.residentId } : { page: 'messages' });
+    window.scrollTo(0, 0);
+  }
   function onOpenChat(resident, teamUser) {
     const id = `${resident.id}-${teamUser.id}`;
     setChats(c => c.find(x => x.id === id) ? c : [...c, {
@@ -3700,50 +6133,86 @@ function App() {
     }].slice(-3));
   }
   function onCloseChat(id) { setChats(c => c.filter(x => x.id !== id)); }
+  function onAssignAction(residentId, suggestion) {
+    const domain = domainById(suggestion.domain);
+    const owner = TEST_USERS.find(u => u.role === suggestion.ownerRole || u.short === suggestion.ownerRole || u.role.includes(suggestion.ownerRole));
+    const action = {
+      id: `a${Date.now()}`,
+      residentId,
+      type: suggestion.type,
+      domain: suggestion.domain,
+      owner: owner ? owner.name : domain.owner,
+      ownerRole: suggestion.ownerRole || domain.owner,
+      priority: suggestion.priority,
+      due: suggestion.due,
+      status: 'Assigned',
+      reason: suggestion.reason,
+      notes: suggestion.notes || '',
+    };
+    setActions(list => [action, ...list]);
+    emitToast(`${action.type} assigned to ${action.owner}.`, 'success');
+    setRoute({ page: 'action', actionId: action.id });
+    window.scrollTo(0, 0);
+  }
+  function onUpdateActionStatus(actionId, status) {
+    setActions(list => list.map(a => a.id === actionId ? { ...a, status } : a));
+    emitToast(`Action updated: ${status}.`, status === 'Completed' ? 'success' : 'info');
+  }
+  function onCloseRisk(actionId, closure) {
+    setActions(list => list.map(a => a.id === actionId ? { ...a, status: closure.closure === 'Monitoring continued' ? 'In Progress' : 'Completed', closure } : a));
+    emitToast(closure.closure === 'Monitoring continued' ? 'Monitoring continued.' : 'Risk closed with rationale.');
+    setRoute({ page: 'actions' });
+    window.scrollTo(0, 0);
+  }
 
-  const counts = { changes: FACILITY_CHANGES.filter(c => c.severity === 'critical' || c.severity === 'high').length };
-  const activeNav = route.page === 'resident' ? 'residents' : route.page;
+  const counts = {
+    changes: FACILITY_CHANGES.filter(c => c.severity === 'critical' || c.severity === 'high').length,
+    messages: messageUnreadCount(),
+    actions: actions.filter(a => a.status !== 'Completed').length,
+  };
+  const activeNav = route.page === 'resident' ? 'residents'
+    : route.page === 'change' ? 'changes'
+    : route.page === 'action' || route.page === 'closure' ? 'actions'
+    : route.page === 'messageDetail' ? 'messages'
+    : route.page;
 
   return (
     <div style={{ minHeight: '100vh', background: '#F7F7F7', fontFamily: 'Inter', color: '#1C192E' }}>
       <AppHeader
         user={user}
         onLogout={() => setUser(null)}
-        onNav={onNav}
-        onMenu={() => setDrawerOpen(true)}
+        onNav={onSmartNav}
+        onOpenResident={onOpenResident}
+        counts={counts}
         mobile={isCompact}
       />
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
         <main class="ois-page" style={{ flex: 1, minWidth: 0, width: '100%', maxWidth: 1024 }}>
-          {route.page === 'home'      && <HomePage user={user} onOpenResident={onOpenResident} onNav={onNav} />}
+          {route.page === 'home'      && <HomePage user={user} actions={actions} onOpenResident={onOpenResident} onOpenAction={onOpenAction} onNav={onSmartNav} />}
           {route.page === 'changes'   && <ChangesPage onOpenResident={onOpenResident} onOpenIssue={onOpenIssue} />}
-          {route.page === 'residents' && <ResidentsList onOpen={onOpenResident} />}
-          {route.page === 'resident'  && <ResidentProfile residentId={route.residentId} onBack={() => onNav('residents')} onOpenChat={onOpenChat} onOpenIssue={onOpenIssue} />}
+          {route.page === 'residents' && <ResidentsList actions={actions} onOpen={onOpenResident} />}
+          {route.page === 'resident'  && <ResidentProfile residentId={route.residentId} actions={actions} onBack={() => onNav('residents')} onOpenChat={onOpenChat} onOpenIssue={onOpenIssue} onAssignAction={onAssignAction} onOpenAction={onOpenAction} />}
           {route.page === 'change'    && <ChangeDetailPage residentId={route.residentId} issueId={route.issueId} onBack={() => onNav('changes')} />}
           {route.page === 'schedule'  && <SchedulePage onOpenResident={onOpenResident} />}
-          {route.page === 'watchlist' && <WatchlistPage onOpenResident={onOpenResident} />}
+          {route.page === 'watchlist' && <WatchlistPage actions={actions} onOpenResident={onOpenResident} />}
+          {route.page === 'actions'   && <ActionsPage actions={actions} onOpenAction={onOpenAction} onOpenResident={onOpenResident} onUpdateActionStatus={onUpdateActionStatus} />}
+          {route.page === 'action'    && <ActionDetailPage actionId={route.actionId} actions={actions} onBack={() => onNav('actions')} onOpenResident={onOpenResident} onUpdateActionStatus={onUpdateActionStatus} onOpenClosure={onOpenClosure} />}
+          {route.page === 'closure'   && <ClosurePage actionId={route.actionId} actions={actions} onBack={() => setRoute({ page: 'action', actionId: route.actionId })} onCloseRisk={onCloseRisk} />}
+          {route.page === 'messages'  && <MessagesPage user={user} onOpenThread={onOpenMessageThread} onOpenChat={onOpenChat} taggedResidentId={route.residentId} />}
+          {route.page === 'messageDetail' && <MessageThreadPage threadId={route.threadId} onBack={onBackToMessages} onOpenChat={onOpenChat} />}
+          {route.page === 'ai'        && <AIAssistantPage user={user} residentId={route.residentId} onOpenResident={onOpenResident} onOpenChat={onOpenChat} onNav={onSmartNav} />}
           {route.page === 'huddle'    && <HuddlePage user={user} onOpenResident={onOpenResident} />}
-          {!['home','changes','residents','resident','change','schedule','watchlist','huddle'].includes(route.page) && (
+          {route.page === 'profile'   && <ProfilePage user={user} onLogout={() => setUser(null)} />}
+          {route.page === 'menu'      && <MenuPage active={activeNav} onNav={onSmartNav} counts={counts} user={user} onLogout={() => setUser(null)} />}
+          {!['home','changes','residents','resident','change','schedule','watchlist','actions','action','closure','messages','messageDetail','ai','huddle','profile','menu'].includes(route.page) && (
             <ComingSoon page={route.page} />
           )}
         </main>
       </div>
       {isCompact && (
-        <>
-          <MobileDrawer
-            open={drawerOpen}
-            active={activeNav}
-            onNav={onNav}
-            counts={counts}
-            user={user}
-            onClose={() => setDrawerOpen(false)}
-            onLogout={() => { setDrawerOpen(false); setUser(null); }}
-          />
-          <MobileTabBar active={activeNav} onNav={onNav} counts={counts} />
-        </>
+        <MobileTabBar active={activeNav} onNav={onSmartNav} onMenu={onOpenMenu} counts={counts} />
       )}
       <ChatDock chats={chats} onClose={onCloseChat} onSendCall={() => {}} mobile={isCompact} />
-      <MessagesFab onOpenChat={onOpenChat} />
       <ToastHost />
     </div>
   );
@@ -3786,25 +6255,49 @@ AppHeader = defineReactComponent(AppHeader);
 SideNav = defineReactComponent(SideNav);
 MobileDrawer = defineReactComponent(MobileDrawer);
 MobileTabBar = defineReactComponent(MobileTabBar);
+MenuPage = defineReactComponent(MenuPage);
 NavItem = defineReactComponent(NavItem);
 PageHeader = defineReactComponent(PageHeader);
 LoginScreen = defineReactComponent(LoginScreen);
 Field = defineReactComponent(Field);
 DemoUserRow = defineReactComponent(DemoUserRow);
 HomePage = defineReactComponent(HomePage);
+ActionMiniStat = defineReactComponent(ActionMiniStat);
+RiskDomainSummaryCard = defineReactComponent(RiskDomainSummaryCard);
 HeroStat = defineReactComponent(HeroStat);
 BriefBullet = defineReactComponent(BriefBullet);
 SectionHeader = defineReactComponent(SectionHeader);
 PriorityRow = defineReactComponent(PriorityRow);
 RiskCategoryCard = defineReactComponent(RiskCategoryCard);
 HuddleModal = defineReactComponent(HuddleModal);
-AskAIPanel = defineReactComponent(AskAIPanel);
+AgentExecutionLog = defineReactComponent(AgentExecutionLog);
+ActionStatusBadge = defineReactComponent(ActionStatusBadge);
+DomainChip = defineReactComponent(DomainChip);
+OperationalResidentCard = defineReactComponent(OperationalResidentCard);
+UnitRiskHeatmap = defineReactComponent(UnitRiskHeatmap);
+OperationalCognitionPanel = defineReactComponent(OperationalCognitionPanel);
+ContinuityThreadPanel = defineReactComponent(ContinuityThreadPanel);
+EvidenceSummaryPanel = defineReactComponent(EvidenceSummaryPanel);
+SuggestedActionPanel = defineReactComponent(SuggestedActionPanel);
+AIAssistantPage = defineReactComponent(AIAssistantPage);
+AgentCommandBanner = defineReactComponent(AgentCommandBanner);
+AiMiniStat = defineReactComponent(AiMiniStat);
+FacilityAIDriver = defineReactComponent(FacilityAIDriver);
+AgentOperatingLoop = defineReactComponent(AgentOperatingLoop);
+ResidentAICard = defineReactComponent(ResidentAICard);
+AiEvidenceBlock = defineReactComponent(AiEvidenceBlock);
+SkillLearningCard = defineReactComponent(SkillLearningCard);
 ResidentsList = defineReactComponent(ResidentsList);
+ActiveFilterSummary = defineReactComponent(ActiveFilterSummary);
+ResidentFilterSheet = defineReactComponent(ResidentFilterSheet);
+FilterSelect = defineReactComponent(FilterSelect);
+FilterRow = defineReactComponent(FilterRow);
 SegmentedControl = defineReactComponent(SegmentedControl);
 ViewBtn = defineReactComponent(ViewBtn);
 ResidentRow = defineReactComponent(ResidentRow);
 ResidentGridCard = defineReactComponent(ResidentGridCard);
 ResidentProfile = defineReactComponent(ResidentProfile);
+ProfileDetailTile = defineReactComponent(ProfileDetailTile);
 Detail = defineReactComponent(Detail);
 TabBtn = defineReactComponent(TabBtn);
 RiskScoreCard = defineReactComponent(RiskScoreCard);
@@ -3827,17 +6320,32 @@ EscalateModal = defineReactComponent(EscalateModal);
 SchedulePage = defineReactComponent(SchedulePage);
 Legend = defineReactComponent(Legend);
 ChangesPage = defineReactComponent(ChangesPage);
+ChangeFilterGrid = defineReactComponent(ChangeFilterGrid);
 ChangeFeedCard = defineReactComponent(ChangeFeedCard);
 WatchlistPage = defineReactComponent(WatchlistPage);
 WatchlistCard = defineReactComponent(WatchlistCard);
 WatchlistDetail = defineReactComponent(WatchlistDetail);
 ChatDock = defineReactComponent(ChatDock);
 ChatWindow = defineReactComponent(ChatWindow);
+ActionsPage = defineReactComponent(ActionsPage);
+ActionMetric = defineReactComponent(ActionMetric);
+OperationalActionCard = defineReactComponent(OperationalActionCard);
+ActionDetailPage = defineReactComponent(ActionDetailPage);
+ClosurePage = defineReactComponent(ClosurePage);
+ClosureField = defineReactComponent(ClosureField);
 HuddlePage = defineReactComponent(HuddlePage);
 StatCard = defineReactComponent(StatCard);
 HuddleRow = defineReactComponent(HuddleRow);
 HuddleDetail = defineReactComponent(HuddleDetail);
+MessagesPage = defineReactComponent(MessagesPage);
+DirectThreadRow = defineReactComponent(DirectThreadRow);
+HuddleThreadRow = defineReactComponent(HuddleThreadRow);
+UnreadBadge = defineReactComponent(UnreadBadge);
+EmptyMessages = defineReactComponent(EmptyMessages);
+MessageThreadPage = defineReactComponent(MessageThreadPage);
 MessagesFab = defineReactComponent(MessagesFab);
+ProfilePage = defineReactComponent(ProfilePage);
+SecurityField = defineReactComponent(SecurityField);
 App = defineReactComponent(App);
 ComingSoon = defineReactComponent(ComingSoon);
 
@@ -3859,25 +6367,49 @@ Object.assign(window, {
   SideNav,
   MobileDrawer,
   MobileTabBar,
+  MenuPage,
   NavItem,
   PageHeader,
   LoginScreen,
   Field,
   DemoUserRow,
   HomePage,
+  ActionMiniStat,
+  RiskDomainSummaryCard,
   HeroStat,
   BriefBullet,
   SectionHeader,
   PriorityRow,
   RiskCategoryCard,
   HuddleModal,
-  AskAIPanel,
+  AgentExecutionLog,
+  ActionStatusBadge,
+  DomainChip,
+  OperationalResidentCard,
+  UnitRiskHeatmap,
+  OperationalCognitionPanel,
+  ContinuityThreadPanel,
+  EvidenceSummaryPanel,
+  SuggestedActionPanel,
+  AIAssistantPage,
+  AgentCommandBanner,
+  AiMiniStat,
+  FacilityAIDriver,
+  AgentOperatingLoop,
+  ResidentAICard,
+  AiEvidenceBlock,
+  SkillLearningCard,
   ResidentsList,
+  ActiveFilterSummary,
+  ResidentFilterSheet,
+  FilterSelect,
+  FilterRow,
   SegmentedControl,
   ViewBtn,
   ResidentRow,
   ResidentGridCard,
   ResidentProfile,
+  ProfileDetailTile,
   Detail,
   TabBtn,
   RiskScoreCard,
@@ -3900,17 +6432,32 @@ Object.assign(window, {
   SchedulePage,
   Legend,
   ChangesPage,
+  ChangeFilterGrid,
   ChangeFeedCard,
   WatchlistPage,
   WatchlistCard,
   WatchlistDetail,
   ChatDock,
   ChatWindow,
+  ActionsPage,
+  ActionMetric,
+  OperationalActionCard,
+  ActionDetailPage,
+  ClosurePage,
+  ClosureField,
   HuddlePage,
   StatCard,
   HuddleRow,
   HuddleDetail,
+  MessagesPage,
+  DirectThreadRow,
+  HuddleThreadRow,
+  UnreadBadge,
+  EmptyMessages,
+  MessageThreadPage,
   MessagesFab,
+  ProfilePage,
+  SecurityField,
   App,
   ComingSoon,
 });

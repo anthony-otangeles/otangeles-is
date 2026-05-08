@@ -33,6 +33,7 @@ const FACILITY = {
 
 // Risk drivers we surface across the app
 const RISK_CATEGORIES = [
+  { id: 'condition',  label: 'Change of Condition',      icon: 'activity',       tone: 'critical', count: 8 },
   { id: 'rehosp',     label: 'Transfer / Rehosp Risk',  icon: 'arrowRight',     tone: 'critical', count: 7 },
   { id: 'sepsis',     label: 'Infection / Sepsis',       icon: 'alertTriangle',  tone: 'critical', count: 4 },
   { id: 'fall',       label: 'Fall Risk',                icon: 'shield',         tone: 'high',     count: 11 },
@@ -40,7 +41,21 @@ const RISK_CATEGORIES = [
   { id: 'nutrition',  label: 'Nutrition / Hydration',    icon: 'droplet',        tone: 'watch',    count: 8 },
   { id: 'rehab',      label: 'Functional / Rehab',       icon: 'trendingDown',   tone: 'watch',    count: 6 },
   { id: 'skin',       label: 'Skin / Wound',             icon: 'heart',          tone: 'watch',    count: 5 },
-  { id: 'behavioral', label: 'Behavioral / Cognitive',   icon: 'sparkles',       tone: 'stable',   count: 3 },
+  { id: 'documentation', label: 'Documentation / QM',    icon: 'fileText',       tone: 'stable',   count: 5 },
+  { id: 'staffing',   label: 'Staffing / Communication', icon: 'users',          tone: 'watch',    count: 4 },
+];
+
+const RISK_DOMAINS = [
+  { id: 'condition', label: 'Change of Condition', short: 'Condition', action: 'Clinical Review', owner: 'Unit Manager' },
+  { id: 'rehosp', label: 'Transfer / Rehospitalization', short: 'Transfer', action: 'Provider Notification', owner: 'Charge Nurse' },
+  { id: 'sepsis', label: 'Infection / Sepsis', short: 'Infection', action: 'Assess Infection Risk', owner: 'Infection Preventionist' },
+  { id: 'fall', label: 'Fall Risk', short: 'Falls', action: 'Review Fall Precautions', owner: 'Unit Manager' },
+  { id: 'skin', label: 'Wound / Pressure Injury', short: 'Wound', action: 'Escalate Wound Concern', owner: 'Wound Care Nurse' },
+  { id: 'med', label: 'Medication Risk', short: 'Meds', action: 'Review Medications', owner: 'Consultant Pharmacist' },
+  { id: 'nutrition', label: 'Nutrition / Hydration', short: 'Nutrition', action: 'Initiate Nutrition Plan', owner: 'Dietitian' },
+  { id: 'rehab', label: 'Functional Decline / Rehab', short: 'Functional', action: 'Add to Morning Huddle', owner: 'Director of Rehabilitation' },
+  { id: 'documentation', label: 'Documentation / QM', short: 'Docs', action: 'Review Documentation Gap', owner: 'MDS Coordinator' },
+  { id: 'staffing', label: 'Staffing / Communication', short: 'Staffing', action: 'Assign to Unit Manager', owner: 'ADON' },
 ];
 
 // Watchlist cards
@@ -62,14 +77,14 @@ const RESIDENTS = [
   { id: 'r1', name: 'Harold Johnson', age: 78, sex: 'M', mrn: '0034-722', room: '312B', unit: 'East · Skilled', code: 'Full Code', risk: 'critical', score: 87, trend: 'up', dx: 'CHF exacerbation, Stage III sacral wound', admitted: '2026-04-22', initials: 'HJ', avatar: '#845EC2',
     drivers: ['rehosp', 'skin', 'nutrition'],
     issues: [
-      { id: 'i1', kind: 'vitals', severity: 'critical', title: 'BP trend: 88/52 → 84/49 over 4h', detail: 'Systolic dropped 14 pts since 02:00. HR 112. Concern for early sepsis vs. volume depletion.', source: 'AI · vitals stream', time: '2h ago' },
+      { id: 'i1', kind: 'vitals', severity: 'critical', title: 'BP trend: 88/52 → 84/49 over 4h', detail: 'Systolic dropped 14 pts since 02:00. HR 112. Concern for early sepsis vs. volume depletion.', source: 'Vitals stream', time: '2h ago' },
       { id: 'i2', kind: 'wound', severity: 'high',     title: 'Sacral wound — exudate increased', detail: 'CNA night shift documented saturated dressing × 2. Photo on file. Last MD review 3d ago.', source: 'CNA note · A. Patel', time: '5h ago' },
       { id: 'i3', kind: 'med',   severity: 'watch',    title: 'Furosemide held × 2 doses', detail: 'BP parameters per order. Provider not yet notified of held doses.', source: 'eMAR', time: '6h ago' },
     ]},
   { id: 'r2', name: 'Marjorie Bell', age: 84, sex: 'F', mrn: '0034-781', room: '218A', unit: 'West · LTC', code: 'DNR', risk: 'critical', score: 81, trend: 'up', dx: 'UTI, dementia, recurrent falls', admitted: '2026-03-04', initials: 'MB', avatar: '#FF6E6C',
     drivers: ['sepsis', 'fall'],
     issues: [
-      { id: 'i1', kind: 'vitals', severity: 'critical', title: 'Temp spike 38.9°C, qSOFA = 2', detail: 'Tachypnea 24, AMS noted. Urine cloudy. Sepsis screening positive.', source: 'AI · sepsis screen', time: '40m ago' },
+      { id: 'i1', kind: 'vitals', severity: 'critical', title: 'Temp spike 38.9°C, qSOFA = 2', detail: 'Tachypnea 24, AMS noted. Urine cloudy. Sepsis screening positive.', source: 'Sepsis screen', time: '40m ago' },
       { id: 'i2', kind: 'fall',   severity: 'high',     title: 'Witnessed fall — bathroom, no injury', detail: 'Morse score updated 65 → 80. Bed alarm reordered.', source: 'Incident · J. Okafor', time: '12h ago' },
     ]},
   { id: 'r3', name: 'Rafael Moreno', age: 71, sex: 'M', mrn: '0034-815', room: '305A', unit: 'East · Skilled', code: 'Full Code', risk: 'high', score: 68, trend: 'flat', dx: 'Post-op CABG day 6, A.fib', admitted: '2026-05-01', initials: 'RM', avatar: '#0081CF',
@@ -80,13 +95,37 @@ const RESIDENTS = [
     ]},
   { id: 'r4', name: 'Adam Linda',     age: 69, sex: 'M', mrn: '0034-772', room: '312A', unit: 'East · Skilled',  code: 'Full Code', risk: 'high', score: 64, trend: 'down', dx: 'COPD exac., DM2',                  admitted: '2026-04-29', initials: 'AL', avatar: '#FF9671', drivers: ['rehosp','med'] },
   { id: 'r5', name: 'Priscilla Owens',age: 76, sex: 'F', mrn: '0034-803', room: '221B', unit: 'West · LTC',      code: 'DNR/DNI',   risk: 'high', score: 62, trend: 'up',   dx: 'Stage IV sacral pressure injury',   admitted: '2026-02-12', initials: 'PO', avatar: '#C34A7D', drivers: ['skin','nutrition'] },
-  { id: 'r6', name: 'Gladys Howe',    age: 88, sex: 'F', mrn: '0034-829', room: '117',  unit: 'Memory Care',     code: 'DNR',       risk: 'watch',score: 49, trend: 'flat', dx: 'Advanced dementia, dysphagia',      admitted: '2025-11-20', initials: 'GH', avatar: '#67568C', drivers: ['nutrition','behavioral'] },
+  { id: 'r6', name: 'Gladys Howe',    age: 88, sex: 'F', mrn: '0034-829', room: '117',  unit: 'Memory Care',     code: 'DNR',       risk: 'watch',score: 49, trend: 'flat', dx: 'Advanced dementia, dysphagia',      admitted: '2025-11-20', initials: 'GH', avatar: '#67568C', drivers: ['nutrition','staffing'] },
   { id: 'r7', name: 'Harold Chen',    age: 73, sex: 'M', mrn: '0034-799', room: '104C', unit: 'East · Skilled',  code: 'Full Code', risk: 'watch',score: 44, trend: 'down', dx: 'Total knee replacement day 3',       admitted: '2026-05-04', initials: 'HC', avatar: '#00C9A7', drivers: ['rehab','med'] },
   { id: 'r8', name: 'Eleanor Park',   age: 81, sex: 'F', mrn: '0034-744', room: '210',  unit: 'West · LTC',      code: 'Full Code', risk: 'watch',score: 41, trend: 'flat', dx: 'Parkinson\u2019s, recurrent UTI',    admitted: '2026-01-08', initials: 'EP', avatar: '#FF6E6C', drivers: ['fall','med'] },
   { id: 'r9', name: 'Jorge Salazar',  age: 65, sex: 'M', mrn: '0034-855', room: '301B', unit: 'East · Skilled',  code: 'Full Code', risk: 'stable',score: 22, trend: 'down', dx: 'Hip fracture s/p ORIF, day 9',     admitted: '2026-04-26', initials: 'JS', avatar: '#0081CF', drivers: ['rehab'] },
   { id: 'r10',name: 'Helen Goodwin',  age: 79, sex: 'F', mrn: '0034-866', room: '215A', unit: 'West · LTC',      code: 'DNR',       risk: 'stable',score: 18, trend: 'flat', dx: 'CKD III, HTN',                       admitted: '2025-12-01', initials: 'HG', avatar: '#29BB89', drivers: [] },
-  { id: 'r11',name: 'Wendell Ortiz',  age: 70, sex: 'M', mrn: '0034-877', room: '109',  unit: 'Memory Care',     code: 'DNR',       risk: 'stable',score: 15, trend: 'flat', dx: 'Alzheimer\u2019s, behavioral plan',  admitted: '2025-10-14', initials: 'WO', avatar: '#845EC2', drivers: ['behavioral'] },
+  { id: 'r11',name: 'Wendell Ortiz',  age: 70, sex: 'M', mrn: '0034-877', room: '109',  unit: 'Memory Care',     code: 'DNR',       risk: 'stable',score: 15, trend: 'flat', dx: 'Alzheimer\u2019s, behavioral plan',  admitted: '2025-10-14', initials: 'WO', avatar: '#845EC2', drivers: ['documentation','staffing'] },
   { id: 'r12',name: 'Doris Pham',     age: 86, sex: 'F', mrn: '0034-888', room: '222',  unit: 'West · LTC',      code: 'DNR',       risk: 'stable',score: 12, trend: 'down', dx: 'Hospice eligible — comfort care',    admitted: '2025-09-22', initials: 'DP', avatar: '#FF9671', drivers: [] },
+];
+
+const OPERATIONAL_ACTIONS_SEED = [
+  { id: 'a1', residentId: 'r2', type: 'Assess Infection Risk', domain: 'sepsis', owner: 'Robert Chen', ownerRole: 'Infection Preventionist', priority: 'High', due: 'Overdue 40m', status: 'Overdue', reason: 'Sepsis screen positive, AMS, qSOFA 2, no provider response documented.', notes: 'Confirm repeat vitals and route provider update.' },
+  { id: 'a2', residentId: 'r1', type: 'Provider Notification', domain: 'rehosp', owner: 'Jenny Ortiz', ownerRole: 'Charge Nurse', priority: 'High', due: 'This shift', status: 'No Action', reason: 'BP trend down with held diuretic and wound exudate increase.', notes: 'Include code status and held eMAR doses.' },
+  { id: 'a3', residentId: 'r1', type: 'Escalate Wound Concern', domain: 'skin', owner: 'Aisha Patel', ownerRole: 'Wound Care Nurse', priority: 'High', due: 'Today 12:00', status: 'In Progress', reason: 'Sacral wound dressing saturated twice overnight.', notes: 'Photo exists; wound consult may be needed.' },
+  { id: 'a4', residentId: 'r3', type: 'Review Medications', domain: 'med', owner: 'Aanya Verma', ownerRole: 'Consultant Pharmacist', priority: 'High', due: 'Today 13:00', status: 'Assigned', reason: 'INR 3.8 with warfarin held pending confirmation.', notes: 'Need provider/pharmacy review before next dose.' },
+  { id: 'a5', residentId: 'r4', type: 'Request Vitals Recheck', domain: 'condition', owner: 'David Kim', ownerRole: 'Unit Manager', priority: 'High', due: 'This shift', status: 'Assigned', reason: 'SpO2 88% on 2L with wheeze and increased RR.', notes: 'Respiratory therapy paged; follow-up not closed.' },
+  { id: 'a6', residentId: 'r5', type: 'Initiate Nutrition Plan', domain: 'nutrition', owner: 'Sofia Rossi', ownerRole: 'Dietitian', priority: 'Moderate', due: 'Today', status: 'Assigned', reason: 'PO intake below 25% for 3 meals with wound risk.', notes: 'Review supplements and fluids.' },
+  { id: 'a7', residentId: 'r7', type: 'Add to Morning Huddle', domain: 'rehab', owner: 'David Park', ownerRole: 'Director of Rehabilitation', priority: 'Moderate', due: 'Next huddle', status: 'In Progress', reason: 'PT session shortened due to pain after TKR.', notes: 'Review pain timing before therapy.' },
+  { id: 'a8', residentId: 'r8', type: 'Review Fall Precautions', domain: 'fall', owner: 'David Kim', ownerRole: 'Unit Manager', priority: 'Moderate', due: 'Today', status: 'Completed', reason: 'Parkinsons with recurrent UTI history and medication risk.', notes: 'Precautions reviewed; continue monitoring.' },
+  { id: 'a9', residentId: 'r11', type: 'Review Documentation Gap', domain: 'documentation', owner: 'Beatrice Liu', ownerRole: 'MDS Coordinator', priority: 'Moderate', due: 'Tomorrow AM', status: 'Assigned', reason: 'Behavioral plan documentation needs reconciliation before review window.', notes: 'MDS and nursing notes need alignment.' },
+  { id: 'a10', residentId: 'r6', type: 'Assign to Unit Manager', domain: 'staffing', owner: 'Marcus Webb', ownerRole: 'ADON', priority: 'Moderate', due: 'Today', status: 'Escalated', reason: 'Dysphagia monitoring concern has no documented owner on current shift.', notes: 'ADON to assign shift owner.' },
+];
+
+const SCHEDULE_EVENTS_SEED = [
+  { id: 's1', residentId: 'r1', title: 'Care plan review', kind: 'care-team', dateLabel: 'Today', startLabel: '9:00 AM', endLabel: '9:30 AM', status: 'Scheduled', owner: 'Sarah Chen', location: 'Conference A + video', participants: ['u1','u3','u9','u11','u18'] },
+  { id: 's2', residentId: 'r2', title: 'Sepsis follow-up huddle', kind: 'huddle', dateLabel: 'Today', startLabel: '10:15 AM', endLabel: '10:30 AM', status: 'Scheduled', owner: 'Jenny Ortiz', location: 'West nurse station', participants: ['u1','u4','u8','u11'] },
+  { id: 's3', residentId: 'r5', title: 'Wound consult', kind: 'clinical', dateLabel: 'Today', startLabel: '11:00 AM', endLabel: '11:30 AM', status: 'Scheduled', owner: 'Aisha Patel', location: 'Room 221B', participants: ['u9','u11','u18'] },
+  { id: 's4', residentId: 'r1', title: 'Family conference', kind: 'family', dateLabel: 'Today', startLabel: '2:00 PM', endLabel: '3:00 PM', status: 'Scheduled', owner: 'Maria Alvarez', location: 'Family room + phone', participants: ['u1','u10','u15','u16'] },
+  { id: 's5', residentId: 'r3', title: 'Medication review', kind: 'clinical', dateLabel: 'Tomorrow', startLabel: '1:00 PM', endLabel: '1:30 PM', status: 'Scheduled', owner: 'Aanya Verma', location: 'Pharmacy review', participants: ['u12','u10','u11'] },
+  { id: 's6', residentId: 'r7', title: 'PT pain-timing review', kind: 'rehab', dateLabel: 'Tomorrow', startLabel: '10:00 AM', endLabel: '10:20 AM', status: 'Tentative', owner: 'David Park', location: 'Therapy gym', participants: ['u13','u14','u4'] },
+  { id: 's7', residentId: 'r8', title: 'Swallow study planning', kind: 'clinical', dateLabel: 'Friday', startLabel: '10:00 AM', endLabel: '10:30 AM', status: 'Scheduled', owner: 'Olivia Reed', location: 'Rehab office', participants: ['u14','u18','u11'] },
+  { id: 's8', residentId: null, title: 'Daily operations huddle', kind: 'huddle', dateLabel: 'Tomorrow', startLabel: '8:00 AM', endLabel: '8:20 AM', status: 'Scheduled', owner: 'Sarah Chen', location: 'Nursing leadership', participants: ['u1','u2','u3','u4','u5','u8','u9'] },
 ];
 
 // Care team for a resident (just store IDs)
@@ -106,7 +145,7 @@ const NOTES_SEED = {
 
 const CAREPLAN_SEED = {
   r1: [
-    { id: 'cp1', kind: 'huddle', title: 'Morning Huddle — Apr 7', participants: ['u1','u2','u3','u4','u9','u10'], time: 'Today · 07:00', summary: 'Wound nurse raised positioning compliance. AI linked to PT note from 4/5 noting refusal of repositioning q2h. Decision: wound specialist consult requested via @u10. Follow-up: Aisha to retake photo in 24h.', actions: ['Wound consult requested','Repositioning q2h re-educated','Photo recheck 24h'] },
+    { id: 'cp1', kind: 'huddle', title: 'Morning Huddle — Apr 7', participants: ['u1','u2','u3','u4','u9','u10'], time: 'Today · 07:00', summary: 'Wound nurse raised positioning compliance. PT note from 4/5 noted refusal of repositioning q2h. Decision: wound specialist consult requested via @u10. Follow-up: Aisha to retake photo in 24h.', actions: ['Wound consult requested','Repositioning q2h re-educated','Photo recheck 24h'] },
     { id: 'cp2', kind: 'call', title: 'Call with Dr. Park — nephrology follow-up', participants: ['u1','u10'], time: 'Yesterday · 14:32', duration: '8m 14s', summary: 'Discussed declining UOP and BUN/Cr trend. Plan: hold furosemide if SBP < 95, recheck BMP in AM, consider IV fluids 250cc bolus PRN. Nephrology to call back tomorrow.', actions: ['Hold furosemide if SBP<95','BMP in AM','IV bolus PRN'] },
     { id: 'cp3', kind: 'message', title: 'Care plan thread — initial admission', participants: ['u1','u11','u15'], time: 'Apr 22 · 10:14', summary: 'Initial admission goals set: stabilize CHF, advance wound healing, target d/c home with family in 4 weeks. Social services to assess home suitability.', actions: ['Social work assessment','4-wk d/c target','Family meeting scheduled'] },
   ],
@@ -120,14 +159,14 @@ function priorityResidents() {
 
 // Recent "changes" (Changes tab summary across the facility)
 const FACILITY_CHANGES = [
-  { residentId: 'r2', kind: 'sepsis',   severity: 'critical', title: 'Sepsis screen positive', detail: 'Temp 38.9°C, AMS, qSOFA 2. AI flagged 40m ago. No provider response yet.',           time: '40m ago', source: 'AI · sepsis screen' },
-  { residentId: 'r1', kind: 'vitals',   severity: 'critical', title: 'BP trending down', detail: 'SBP −14 pts in 4h, HR 112. Consider sepsis vs volume depletion.',                          time: '2h ago',  source: 'AI · vitals stream' },
+  { residentId: 'r2', kind: 'sepsis',   severity: 'critical', title: 'Sepsis screen positive', detail: 'Temp 38.9°C, AMS, qSOFA 2. Flagged 40m ago. No provider response yet.',              time: '40m ago', source: 'Sepsis screen' },
+  { residentId: 'r1', kind: 'vitals',   severity: 'critical', title: 'BP trending down', detail: 'SBP −14 pts in 4h, HR 112. Consider sepsis vs volume depletion.',                          time: '2h ago',  source: 'Vitals stream' },
   { residentId: 'r3', kind: 'lab',      severity: 'high',     title: 'INR 3.8 — supratherapeutic', detail: 'Warfarin held pending provider confirmation. Last INR 2.6 (4d ago).',             time: '1h ago',  source: 'Lab · Quest' },
-  { residentId: 'r4', kind: 'vitals',   severity: 'high',     title: 'SpO₂ 88% on 2L', detail: 'Resp rate 24, audible wheeze. Respiratory therapy paged.',                                    time: '3h ago',  source: 'AI · vitals stream' },
+  { residentId: 'r4', kind: 'vitals',   severity: 'high',     title: 'SpO₂ 88% on 2L', detail: 'Resp rate 24, audible wheeze. Respiratory therapy paged.',                                    time: '3h ago',  source: 'Vitals stream' },
   { residentId: 'r1', kind: 'wound',    severity: 'high',     title: 'Sacral wound — exudate ↑', detail: 'Saturated dressing × 2 overnight. Photo on file.',                                  time: '5h ago',  source: 'CNA note' },
   { residentId: 'r5', kind: 'nutrition',severity: 'watch',    title: 'PO intake < 25% × 3 meals', detail: 'Refusing solids, accepting fluids. Consider supplement order.',                    time: '6h ago',  source: 'eMAR' },
   { residentId: 'r2', kind: 'fall',     severity: 'high',     title: 'Witnessed fall — bathroom', detail: 'No injury. Morse 65 → 80. Bed alarm reordered.',                                   time: '12h ago', source: 'Incident report' },
   { residentId: 'r7', kind: 'rehab',    severity: 'watch',    title: 'PT session shortened', detail: 'Pain 7/10 at incision site. PRN oxycodone given, plan to retry in PM.',                 time: '14h ago', source: 'Rehab note' },
 ];
 
-Object.assign(window, { TEST_USERS, FACILITY, RISK_CATEGORIES, WATCHLISTS, RESIDENTS, CARE_TEAMS, NOTES_SEED, CAREPLAN_SEED, FACILITY_CHANGES, priorityResidents });
+Object.assign(window, { TEST_USERS, FACILITY, RISK_CATEGORIES, RISK_DOMAINS, WATCHLISTS, RESIDENTS, CARE_TEAMS, NOTES_SEED, CAREPLAN_SEED, OPERATIONAL_ACTIONS_SEED, SCHEDULE_EVENTS_SEED, FACILITY_CHANGES, priorityResidents });

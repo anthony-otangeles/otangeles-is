@@ -1,77 +1,178 @@
 // Residents list + Resident profile with tabs
 
-function ResidentsList({ onOpen }) {
+function ResidentsList({ onOpen, actions }) {
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all');
-  const [view, setView] = useState('grid');
+  const [unit, setUnit] = useState('all');
+  const [risk, setRisk] = useState('all');
+  const [domain, setDomain] = useState('all');
+  const [actionStatus, setActionStatus] = useState('all');
+  const [filterOpen, setFilterOpen] = useState(false);
   const v = useViewport();
   const isPhone = v.isMobile;
+  const units = ['all', ...Array.from(new Set(RESIDENTS.map(r => r.unit)))];
+  const riskOptions = ['all', 'High', 'Moderate', 'Low'];
+  const actionOptions = ['all', 'No Action', 'Assigned', 'In Progress', 'Overdue', 'Escalated', 'Completed'];
+  const activeFilterCount = [unit, risk, domain, actionStatus].filter(x => x !== 'all').length;
 
-  const filtered = RESIDENTS.filter(r => {
-    if (filter !== 'all' && r.risk !== filter) return false;
-    if (!search) return true;
+  const filtered = priorityResidentsWithActions(actions).filter(r => {
     const q = search.toLowerCase();
-    return r.name.toLowerCase().includes(q) || r.mrn.includes(q) || r.room.toLowerCase().includes(q) || r.unit.toLowerCase().includes(q);
+    const matchesSearch = !q || r.name.toLowerCase().includes(q) || r.mrn.includes(q) || r.room.toLowerCase().includes(q) || r.unit.toLowerCase().includes(q);
+    const matchesUnit = unit === 'all' || r.unit === unit;
+    const matchesRisk = risk === 'all' || riskLabelForResident(r) === risk;
+    const matchesDomain = domain === 'all'
+      || (r.drivers || []).includes(domain)
+      || residentEvidenceItems(r).some(item => item.domain === domain);
+    const matchesAction = actionStatus === 'all' || residentActionStatus(r, actions) === actionStatus;
+    return matchesSearch && matchesUnit && matchesRisk && matchesDomain && matchesAction;
   });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: isPhone ? 20 : 28 }}>
       <PageHeader
         title="Residents"
-        subtitle={`${RESIDENTS.length} residents across ${FACILITY.name} · ${FACILITY.building}`}
+        subtitle="Searchable resident directory. Filters narrow the same unified risk and action model shown on Home."
         actions={[
-          <Button key="filter" variant="secondary" icon="filter" onClick={() => emitToast('Advanced filters coming soon — use the search and risk pills below.', 'info')}>Filter</Button>,
           <Button key="add" variant="primary" icon="plus" onClick={() => emitToast('Add Resident flow coming soon — wire to PCC admit endpoint.', 'info')}>Add Resident</Button>,
         ]}
       />
 
-      <Card style={{ padding: isPhone ? 12 : 16, display: 'flex', alignItems: 'stretch', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 260px', minWidth: isPhone ? '100%' : 240 }}>
-          <Input icon="search" placeholder="Search by name, MRN, room, unit…" value={search} onChange={e => setSearch(e.target.value)} />
+      <Card style={{ padding: isPhone ? 12 : 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+          <Input icon="search" placeholder="Search by name, MRN, room, unit…" value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+          <Button variant="secondary" icon="filter" onClick={() => setFilterOpen(true)} style={{ minWidth: isPhone ? 104 : 124 }}>
+            Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}
+          </Button>
         </div>
-        <div style={{ minWidth: 0, maxWidth: '100%', overflowX: 'auto' }}>
-          <SegmentedControl
-            value={filter} onChange={setFilter}
-            options={[
-              { id: 'all', label: 'All' },
-              { id: 'critical', label: 'Critical', tone: 'critical' },
-              { id: 'high', label: 'High', tone: 'high' },
-              { id: 'watch', label: 'Watch', tone: 'watch' },
-              { id: 'stable', label: 'Stable', tone: 'stable' },
-            ]}
-          />
-        </div>
-        <div style={{ display: 'flex', border: '1px solid #E5E7EB', borderRadius: 6, overflow: 'hidden', marginLeft: isPhone ? 'auto' : 0 }}>
-          <ViewBtn icon="list" active={view === 'list'} onClick={() => setView('list')} />
-          <ViewBtn icon="grid" active={view === 'grid'} onClick={() => setView('grid')} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 12, color: '#6A7282' }}>
+            Showing <b style={{ color: '#1C192E' }}>{filtered.length}</b> of {RESIDENTS.length}
+          </div>
+          <ActiveFilterSummary unit={unit} risk={risk} domain={domain} actionStatus={actionStatus} />
+          {activeFilterCount > 0 && (
+            <button onClick={() => { setUnit('all'); setRisk('all'); setDomain('all'); setActionStatus('all'); }} style={{
+              border: 0, background: 'transparent', color: '#845EC2', font: '800 12px Inter', cursor: 'pointer', padding: 0,
+            }}>Clear filters</button>
+          )}
         </div>
       </Card>
-
-      {view === 'list' ? (
-        <Card style={{ padding: 0, overflow: isPhone ? 'hidden' : 'auto' }}>
-          <table className="ois-stack" style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Inter', minWidth: isPhone ? 0 : 840 }}>
-            <thead>
-              <tr style={{ fontSize: 11, color: '#6A7282', fontWeight: 700, textAlign: 'left', letterSpacing: '0.04em', background: '#FAFAFA' }}>
-                <th style={th}>RESIDENT</th>
-                <th style={th}>MRN</th>
-                <th style={th}>LOCATION</th>
-                <th style={th}>CODE STATUS</th>
-                <th style={th}>RISK</th>
-                <th style={th}>TREND</th>
-                <th style={th}>DRIVERS</th>
-                <th style={th}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(r => <ResidentRow key={r.id} r={r} onClick={() => onOpen(r.id)} />)}
-            </tbody>
-          </table>
-        </Card>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${isPhone ? 240 : 280}px, 1fr))`, gap: 12 }}>
-          {filtered.map(r => <ResidentGridCard key={r.id} r={r} onClick={() => onOpen(r.id)} />)}
-        </div>
+      {filterOpen && (
+        <ResidentFilterSheet
+          unit={unit} risk={risk} domain={domain} actionStatus={actionStatus}
+          units={units} riskOptions={riskOptions} actionOptions={actionOptions}
+          onUnit={setUnit} onRisk={setRisk} onDomain={setDomain} onActionStatus={setActionStatus}
+          onClose={() => setFilterOpen(false)}
+          onClear={() => { setUnit('all'); setRisk('all'); setDomain('all'); setActionStatus('all'); }}
+        />
       )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${isPhone ? 260 : 320}px, 1fr))`, gap: 12 }}>
+        {filtered.map(r => <OperationalResidentCard key={r.id} r={r} actions={actions} onClick={() => onOpen(r.id)} />)}
+      </div>
+      {filtered.length === 0 && (
+        <Card style={{ padding: 28, textAlign: 'center', fontSize: 13, color: '#6A7282' }}>
+          No residents match the current filters.
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function ActiveFilterSummary({ unit, risk, domain, actionStatus }) {
+  const active = [
+    unit !== 'all' && unit,
+    risk !== 'all' && risk,
+    domain !== 'all' && domainById(domain).short,
+    actionStatus !== 'all' && actionStatus,
+  ].filter(Boolean);
+  if (!active.length) return <div style={{ fontSize: 12, color: '#99A1AF' }}>No filters applied</div>;
+  return (
+    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+      {active.map(item => <Chip key={item} tone="todo">{item}</Chip>)}
+    </div>
+  );
+}
+
+function ResidentFilterSheet({ unit, risk, domain, actionStatus, units, riskOptions, actionOptions, onUnit, onRisk, onDomain, onActionStatus, onClose, onClear }) {
+  const v = useViewport();
+  const isPhone = v.isMobile;
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(28,25,46,0.34)', zIndex: 80, display: 'flex', alignItems: isPhone ? 'flex-end' : 'center', justifyContent: 'center', padding: isPhone ? 0 : 18 }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: isPhone ? '100%' : 480,
+        maxWidth: isPhone ? '100%' : 'calc(100vw - 36px)',
+        background: '#fff',
+        borderRadius: isPhone ? '16px 16px 0 0' : 14,
+        border: '1px solid #E5E7EB',
+        boxShadow: '0 20px 40px rgba(28,25,46,0.18)',
+        overflow: 'hidden',
+      }}>
+        <div style={{ padding: 16, borderBottom: '1px solid #EEEEEE', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: '#1C192E' }}>Filter Residents</div>
+            <div style={{ fontSize: 12, color: '#6A7282', marginTop: 2 }}>Use structured filters instead of sideways scrolling chips.</div>
+          </div>
+          <IconButton icon="x" onClick={onClose} />
+        </div>
+        <div style={{ padding: 16, display: 'grid', gridTemplateColumns: isPhone ? '1fr' : '1fr 1fr', gap: 12 }}>
+          <FilterSelect label="Unit" value={unit} onChange={onUnit} options={units.map(u => ({ id: u, label: u === 'all' ? 'All units' : u }))} />
+          <FilterSelect label="Risk level" value={risk} onChange={onRisk} options={riskOptions.map(x => ({ id: x, label: x === 'all' ? 'All risk levels' : x }))} />
+          <FilterSelect label="Risk domain" value={domain} onChange={onDomain} options={[{ id: 'all', label: 'All domains' }, ...RISK_DOMAINS.map(d => ({ id: d.id, label: d.label }))]} />
+          <FilterSelect label="Action status" value={actionStatus} onChange={onActionStatus} options={actionOptions.map(x => ({ id: x, label: x === 'all' ? 'All action statuses' : x }))} />
+        </div>
+        <div style={{ padding: 16, borderTop: '1px solid #EEEEEE', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <Button variant="secondary" onClick={onClear}>Clear</Button>
+          <Button variant="primary" onClick={onClose}>Apply Filters</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FilterSelect({ label, value, onChange, options }) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span style={{ fontSize: 11, fontWeight: 900, color: '#6A7282', letterSpacing: '0.06em' }}>{label.toUpperCase()}</span>
+      <select value={value} onChange={e => onChange(e.target.value)} style={{
+        width: '100%',
+        height: 42,
+        border: '1px solid #E5E7EB',
+        borderRadius: 8,
+        background: '#fff',
+        color: '#1C192E',
+        font: '700 13px Inter',
+        padding: '0 10px',
+        outline: 0,
+      }}>
+        {options.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function FilterRow({ label, options, value, onChange }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '72px minmax(0, 1fr)', gap: 8, alignItems: 'center' }}>
+      <div style={{ fontSize: 11, fontWeight: 900, color: '#6A7282', letterSpacing: '0.05em' }}>{label.toUpperCase()}</div>
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
+        {options.map(option => {
+          const active = value === option.id;
+          return (
+            <button key={option.id} onClick={() => onChange(option.id)} style={{
+              flex: '0 0 auto',
+              minHeight: 34,
+              borderRadius: 9999,
+              border: `1px solid ${active ? '#00C9A7' : '#E5E7EB'}`,
+              background: active ? '#E7F5EF' : '#fff',
+              color: active ? '#00795E' : '#52525B',
+              padding: '7px 11px',
+              font: '800 12px Inter',
+              cursor: 'pointer',
+            }}>
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -80,8 +181,13 @@ const th = { padding: '12px 18px', fontWeight: 700 };
 const td = { padding: '14px 18px', fontSize: 14, color: '#1C192E', verticalAlign: 'middle' };
 
 function SegmentedControl({ value, onChange, options }) {
+  const v = useViewport();
+  const isPhone = v.isMobile;
   return (
-    <div style={{ display: 'flex', gap: 4, padding: 4, background: '#F5F2FD', borderRadius: 8 }}>
+    <div style={{
+      display: 'flex', gap: 4, padding: 4, background: '#F5F2FD', borderRadius: 8,
+      flexWrap: isPhone ? 'wrap' : 'nowrap', width: '100%', maxWidth: '100%',
+    }}>
       {options.map(o => {
         const active = o.id === value;
         return (
@@ -91,10 +197,12 @@ function SegmentedControl({ value, onChange, options }) {
             color: active ? '#1C192E' : '#6A7282',
             fontSize: 13, fontWeight: 600, cursor: 'pointer',
             boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-            display: 'flex', alignItems: 'center', gap: 6,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            flex: isPhone ? '1 1 calc(50% - 4px)' : '0 0 auto',
+            minWidth: 0,
           }}>
             {o.tone && <span style={{ width: 7, height: 7, borderRadius: 9999, background: RISK[o.tone].dot }} />}
-            {o.label}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.label}</span>
           </button>
         );
       })}
@@ -115,7 +223,6 @@ function ViewBtn({ icon, active, onClick }) {
 
 function ResidentRow({ r, onClick }) {
   const [hover, setHover] = useState(false);
-  const tone = RISK[r.risk];
   return (
     <tr onClick={onClick}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
@@ -132,13 +239,6 @@ function ResidentRow({ r, onClick }) {
       <td style={{ ...td, fontFamily: 'JetBrains Mono', fontSize: 12, color: '#6A7282' }}>{r.mrn}</td>
       <td style={td}><div style={{ fontWeight: 600 }}>Rm {r.room}</div><div style={{ fontSize: 12, color: '#6A7282' }}>{r.unit}</div></td>
       <td style={td}><Chip tone={r.code === 'Full Code' ? 'info' : r.code.startsWith('DNR') ? 'voided' : 'todo'}>{r.code}</Chip></td>
-      <td style={td}><RiskBadge level={r.risk} score={r.score} /></td>
-      <td style={td}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: r.trend === 'up' ? '#E53E3E' : r.trend === 'down' ? '#29BB89' : '#6A7282' }}>
-          <Icon name={r.trend === 'up' ? 'trendingUp' : r.trend === 'down' ? 'trendingDown' : 'arrowRight'} size={14} color={r.trend === 'up' ? '#E53E3E' : r.trend === 'down' ? '#29BB89' : '#6A7282'} />
-          {r.trend === 'up' ? 'Rising' : r.trend === 'down' ? 'Improving' : 'Flat'}
-        </div>
-      </td>
       <td style={td}>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {(r.drivers || []).slice(0, 2).map(id => {
@@ -154,10 +254,9 @@ function ResidentRow({ r, onClick }) {
 }
 
 function ResidentGridCard({ r, onClick }) {
-  const tone = RISK[r.risk];
   return (
     <Card hoverable onClick={onClick} style={{ padding: 0, overflow: 'hidden' }}>
-      <div style={{ height: 4, background: tone.dot }} />
+      <div style={{ height: 4, background: '#E5E7EB' }} />
       <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Avatar initials={r.initials} seed={r.id} size={44} isResident />
@@ -168,7 +267,7 @@ function ResidentGridCard({ r, onClick }) {
         </div>
         <div style={{ fontSize: 13, color: '#6A7282', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.dx}</div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <RiskBadge level={r.risk} score={r.score} />
+          <Chip tone={r.code === 'Full Code' ? 'info' : r.code.startsWith('DNR') ? 'voided' : 'todo'}>{r.code}</Chip>
           <code style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#6A7282' }}>{r.mrn}</code>
         </div>
       </div>
@@ -178,7 +277,7 @@ function ResidentGridCard({ r, onClick }) {
 
 // ============== RESIDENT PROFILE ==============
 
-function ResidentProfile({ residentId, onBack, onOpenChat, onOpenIssue }) {
+function ResidentProfile({ residentId, actions, onBack, onOpenChat, onOpenIssue, onAssignAction, onOpenAction }) {
   const r = RESIDENTS.find(x => x.id === residentId);
   const [tab, setTab] = useState('changes');
   const [showSchedule, setShowSchedule] = useState(false);
@@ -189,6 +288,10 @@ function ResidentProfile({ residentId, onBack, onOpenChat, onOpenIssue }) {
   const tone = RISK[r.risk];
   const teamIds = CARE_TEAMS[r.id] || CARE_TEAMS.r1;
   const team = teamIds.map(id => TEST_USERS.find(u => u.id === id)).filter(Boolean);
+  const evidence = residentEvidenceItems(r);
+  const activeDomains = Array.from(new Set([...(r.drivers || []), ...evidence.map(item => item.domain)]));
+  const residentSchedule = SCHEDULE_EVENTS_SEED.filter(event => event.residentId === r.id);
+  const nextSchedule = residentSchedule[0];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -202,36 +305,65 @@ function ResidentProfile({ residentId, onBack, onOpenChat, onOpenIssue }) {
       {/* Profile header */}
       <Card style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ height: 4, background: tone.dot }} />
-        <div className="ois-profile-grid">
-          {/* Identity */}
-          <div style={{ display: 'flex', gap: isPhone ? 14 : 20, alignItems: 'flex-start' }}>
+        <div style={{ padding: isPhone ? 14 : 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', gap: isPhone ? 12 : 16, alignItems: 'stretch' }}>
             <div style={{ position: 'relative' }}>
-              <Avatar initials={r.initials} seed={r.id} size={isPhone ? 64 : 92} isResident />
+              <Avatar initials={r.initials} seed={r.id} size={isPhone ? 58 : 72} isResident />
               <div style={{ position: 'absolute', bottom: -2, right: -2, background: '#fff', borderRadius: 9999, padding: 2 }}>
-                <div style={{ width: 18, height: 18, borderRadius: 9999, background: tone.dot, border: '2px solid #fff' }} />
+                <div style={{ width: 16, height: 16, borderRadius: 9999, background: tone.dot, border: '2px solid #fff' }} />
               </div>
             </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <h1 style={{ margin: 0, fontSize: isPhone ? 24 : 28, fontWeight: 700, letterSpacing: '-0.02em' }}>{r.name}</h1>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <h1 style={{ margin: 0, fontSize: isPhone ? 20 : 24, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.05 }}>{r.name}</h1>
                 <RiskBadge level={r.risk} score={r.score} />
               </div>
-              <div style={{ fontSize: 14, color: '#6A7282', marginTop: 6 }}>
+              <div style={{ fontSize: isPhone ? 12 : 13, color: '#6A7282', lineHeight: '17px' }}>
                 {r.age} · {r.sex} · <code style={{ fontFamily: 'JetBrains Mono', fontSize: 12 }}>MRN {r.mrn}</code>
               </div>
-              <div style={{ display: 'flex', gap: 18, marginTop: 14, flexWrap: 'wrap' }}>
-                <Detail icon="mapPin" label="Location" value={`Rm ${r.room} · ${r.unit}`} />
-                <Detail icon="shield" label="Code Status" value={r.code} />
-                <Detail icon="calendar" label="Admitted" value={r.admitted} />
-                <Detail icon="activity" label="Primary Dx" value={r.dx} flex />
-              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center', minWidth: isPhone ? 96 : 120 }}>
+              <Button size="sm" variant="lavender" icon="calendar" style={{ width: '100%' }} onClick={() => setShowSchedule(true)}>Schedule</Button>
+              <Button size="sm" variant="danger" icon="alertTriangle" style={{ width: '100%' }} onClick={() => setShowEscalate(true)}>Escalate</Button>
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="ois-row-actions" style={{ display: 'flex', gap: 8 }}>
-            <Button variant="lavender" icon="calendar" onClick={() => setShowSchedule(true)}>Schedule</Button>
-            <Button variant="danger" icon="alertTriangle" onClick={() => setShowEscalate(true)}>Escalate</Button>
+          <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr 1fr' : 'repeat(3, minmax(0, 1fr))', gap: 8, width: '100%' }}>
+            <ProfileDetailTile icon="mapPin" label="Location" value={`Rm ${r.room} · ${r.unit}`} />
+            <ProfileDetailTile icon="shield" label="Code Status" value={r.code} />
+            <ProfileDetailTile icon="calendar" label="Admitted" value={r.admitted} />
+            <ProfileDetailTile icon="activity" label="Primary Dx" value={r.dx} wide />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) minmax(280px, 0.7fr)', gap: 10, width: '100%' }}>
+            <div style={{ padding: 10, border: '1px solid #EEEEEE', borderRadius: 9, background: '#FAFAFC' }}>
+              <div style={{ fontSize: 11, fontWeight: 900, color: '#6A7282', letterSpacing: '0.06em', marginBottom: 7 }}>ACTIVE RISK DOMAINS</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {activeDomains.length ? activeDomains.slice(0, 8).map(id => <DomainChip key={id} domainId={id} />) : <Chip tone="stable">Routine monitoring</Chip>}
+              </div>
+            </div>
+            <button onClick={() => setShowSchedule(true)} style={{
+              border: '1px solid #E5E7EB',
+              borderRadius: 9,
+              background: nextSchedule ? '#E7F5EF' : '#fff',
+              padding: 10,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              textAlign: 'left',
+              cursor: 'pointer',
+            }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: '#fff', border: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon name="calendar" size={16} color={nextSchedule ? '#00795E' : '#6A7282'} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: nextSchedule ? '#00795E' : '#6A7282', letterSpacing: '0.05em' }}>{nextSchedule ? 'NEXT SCHEDULED' : 'NO UPCOMING SCHEDULE'}</div>
+                <div style={{ fontSize: 12, fontWeight: 900, color: '#1C192E', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {nextSchedule ? `${nextSchedule.title} · ${nextSchedule.dateLabel} ${nextSchedule.startLabel}` : 'Tap to schedule'}
+                </div>
+              </div>
+              <Icon name="chevronRight" size={14} color="#99A1AF" />
+            </button>
           </div>
         </div>
 
@@ -242,9 +374,34 @@ function ResidentProfile({ residentId, onBack, onOpenChat, onOpenIssue }) {
         </div>
       </Card>
 
+      <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) minmax(280px, 0.8fr)', gap: 12 }}>
+        <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 900, color: '#1C192E' }}>Why this resident was flagged</div>
+            <div style={{ fontSize: 12, color: '#6A7282', marginTop: 3 }}>
+              Risk moved to {riskLabelForResident(r)} and is {trendLabelForResident(r)} over the current monitoring window.
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {(evidence.length ? evidence : [{ id: 'routine', title: 'Routine monitoring', detail: r.dx, severity: r.risk }]).slice(0, 5).map(item => (
+              <div key={item.id} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontSize: 13, color: '#1C192E', lineHeight: '18px' }}>
+                <span style={{ width: 7, height: 7, borderRadius: 9999, background: (RISK[item.severity] || tone).dot, marginTop: 6, flexShrink: 0 }} />
+                <span><b>{item.title}</b>{item.detail ? ` - ${item.detail}` : ''}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <OperationalCognitionPanel resident={r} actions={actions} compact={isPhone} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) minmax(300px, 0.9fr)', gap: 12 }}>
+        <ContinuityThreadPanel r={r} actions={actions} onOpenAction={onOpenAction} />
+        <SuggestedActionPanel r={r} actions={actions} onAssign={onAssignAction} onOpenAction={onOpenAction} />
+      </div>
+
       {/* Tabs */}
       <Card style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ display: 'flex', borderBottom: '1px solid #EEEEEE', padding: isPhone ? '0 8px' : '0 16px', overflowX: 'auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', borderBottom: '1px solid #EEEEEE', padding: isPhone ? '0 4px' : '0 12px' }}>
           {[
             { id: 'changes', label: 'Changes', icon: 'activity', count: (r.issues || []).length },
             { id: 'team', label: 'Care Team', icon: 'users', count: team.length },
@@ -268,6 +425,28 @@ function ResidentProfile({ residentId, onBack, onOpenChat, onOpenIssue }) {
   );
 }
 
+function ProfileDetailTile({ icon, label, value, wide }) {
+  return (
+    <div style={{
+      gridColumn: wide ? '1 / -1' : undefined,
+      minWidth: 0,
+      border: '1px solid #EEEEEE',
+      borderRadius: 9,
+      background: '#fff',
+      padding: 10,
+      display: 'flex',
+      gap: 8,
+      alignItems: 'flex-start',
+    }}>
+      <Icon name={icon} size={15} color="#99A1AF" />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 10, fontWeight: 900, color: '#99A1AF', letterSpacing: '0.06em' }}>{label.toUpperCase()}</div>
+        <div style={{ fontSize: 12, fontWeight: 800, marginTop: 3, color: '#1C192E', lineHeight: '16px' }}>{value}</div>
+      </div>
+    </div>
+  );
+}
+
 function Detail({ icon, label, value, flex }) {
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', minWidth: 0, flex: flex ? 1 : '0 0 auto' }}>
@@ -285,16 +464,18 @@ function TabBtn({ t, active, onClick }) {
   const isPhone = v.isMobile;
   return (
     <button onClick={onClick} style={{
-      padding: isPhone ? '12px 10px' : '14px 18px', border: 0, background: 'transparent', cursor: 'pointer',
-      display: 'flex', alignItems: 'center', gap: 8, fontSize: isPhone ? 13 : 14, fontWeight: 700,
+      padding: isPhone ? '10px 4px 9px' : '12px 8px 10px', border: 0, background: 'transparent', cursor: 'pointer',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+      fontSize: isPhone ? 11 : 12, fontWeight: 800,
       color: active ? '#845EC2' : '#6A7282',
       borderBottom: `2px solid ${active ? '#845EC2' : 'transparent'}`,
-      marginBottom: -1, transition: 'all 120ms', flexShrink: 0,
+      marginBottom: -1, transition: 'all 120ms', minWidth: 0, minHeight: isPhone ? 58 : 64, position: 'relative',
     }}>
-      <Icon name={t.icon} size={16} color={active ? '#845EC2' : '#6A7282'} />
-      {t.label}
+      <Icon name={t.icon} size={isPhone ? 17 : 18} color={active ? '#845EC2' : '#6A7282'} />
+      <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.label}</span>
       {t.count != null && <span style={{
-        minWidth: 20, height: 18, padding: '0 6px', borderRadius: 9999,
+        position: 'absolute', top: 5, right: 5,
+        minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9999,
         background: active ? '#F5F2FD' : '#F3F4F6', color: active ? '#845EC2' : '#6A7282',
         fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       }}>{t.count}</span>}
@@ -327,7 +508,9 @@ function RiskScoreCard({ score, level, trend }) {
 }
 
 function RiskTrendChart({ score, level }) {
-  const tone = RISK[level];
+  const lineColor = '#E53E3E';
+  const softRed = 'rgba(229,62,62,0.12)';
+  const gradId = `risk-trend-red-${level || 'resident'}`;
   // Generate 14 data points trending up to current
   const points = useMemo(() => {
     const arr = [];
@@ -354,21 +537,21 @@ function RiskTrendChart({ score, level }) {
         <div style={{ fontSize: 11, fontWeight: 700, color: '#99A1AF', letterSpacing: '0.08em' }}>14-DAY TREND</div>
         <div style={{ fontSize: 11, color: '#6A7282' }}>Score · driven by vitals, labs, ADL change, med adherence</div>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block', background: 'linear-gradient(180deg, rgba(253,236,236,0.72) 0%, rgba(255,255,255,0) 100%)', borderRadius: 8 }}>
         <defs>
-          <linearGradient id="trend-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={tone.dot} stopOpacity="0.25" />
-            <stop offset="100%" stopColor={tone.dot} stopOpacity="0" />
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#E53E3E" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="#E53E3E" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <line x1={P} y1={P + (1 - 0.6) * (H - 2 * P)} x2={W - P} y2={P + (1 - 0.6) * (H - 2 * P)} stroke="#EEEEEE" strokeDasharray="3 3" />
-        <line x1={P} y1={P + (1 - 0.8) * (H - 2 * P)} x2={W - P} y2={P + (1 - 0.8) * (H - 2 * P)} stroke="#FFE5E5" strokeDasharray="3 3" />
-        <path d={areaPath} fill="url(#trend-grad)" />
-        <path d={path} fill="none" stroke={tone.dot} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        <line x1={P} y1={P + (1 - 0.6) * (H - 2 * P)} x2={W - P} y2={P + (1 - 0.6) * (H - 2 * P)} stroke={softRed} strokeDasharray="3 3" />
+        <line x1={P} y1={P + (1 - 0.8) * (H - 2 * P)} x2={W - P} y2={P + (1 - 0.8) * (H - 2 * P)} stroke="#FCA5A5" strokeDasharray="3 3" />
+        <path d={areaPath} fill={`url(#${gradId})`} />
+        <path d={path} fill="none" stroke={lineColor} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
         {points.map((p, i) => {
           const x = P + (i / (points.length - 1)) * (W - P * 2);
           const y = P + (1 - (p - min) / (max - min)) * (H - P * 2);
-          return <circle key={i} cx={x} cy={y} r={i === points.length - 1 ? 4 : 0} fill={tone.dot} />;
+          return <circle key={i} cx={x} cy={y} r={i === points.length - 1 ? 4 : 0} fill={lineColor} />;
         })}
       </svg>
     </div>
@@ -379,33 +562,25 @@ function RiskTrendChart({ score, level }) {
 
 function ChangesTab({ r, onOpenIssue }) {
   const issues = r.issues || [
-    { id: 'i1', kind: 'vitals', severity: 'watch', title: 'No active changes flagged', detail: 'Continuity AI is monitoring vitals, labs, and notes. You will be notified when something changes.', source: 'AI · monitor', time: 'Now' },
+    { id: 'i1', kind: 'vitals', severity: 'watch', title: 'No active changes flagged', detail: 'Vitals, labs, and notes are within the current monitoring window.', source: 'Monitor', time: 'Now' },
   ];
-  const [statuses, setStatuses] = useState({});
-  function setStatus(id, s) {
-    setStatuses(m => ({ ...m, [id]: s }));
-    if (s === 'ack')      emitToast('Change acknowledged.');
-    if (s === 'monitor')  emitToast('Moved to For Monitoring.', 'info');
-  }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-        <Icon name="sparkles" size={16} color="#845EC2" />
+        <Icon name="activity" size={16} color="#845EC2" />
         <div style={{ fontSize: 13, color: '#6A7282' }}>
-          <b style={{ color: '#1C192E' }}>{issues.length} active changes</b> driving this resident's risk score. Click any card for full evidence and AI-suggested actions.
+          <b style={{ color: '#1C192E' }}>{issues.length} active changes</b> driving this resident's risk score. Click any card for full evidence and next actions.
         </div>
       </div>
       {issues.map(issue => (
         <ChangeCard key={issue.id} issue={issue} r={r}
-          status={statuses[issue.id]}
-          onSetStatus={s => setStatus(issue.id, s)}
           onOpen={() => onOpenIssue && onOpenIssue(r.id, issue.id)} />
       ))}
     </div>
   );
 }
 
-function ChangeCard({ issue, r, onOpen, status, onSetStatus }) {
+function ChangeCard({ issue, r, onOpen, status }) {
   const sev = RISK[issue.severity] || RISK.watch;
   const iconMap = { vitals: 'activity', wound: 'heart', med: 'pill', fall: 'shield', lab: 'fileText', nutrition: 'droplet', sepsis: 'alertTriangle', rehab: 'trendingDown' };
   const [hover, setHover] = useState(false);
@@ -435,20 +610,20 @@ function ChangeCard({ issue, r, onOpen, status, onSetStatus }) {
           <span>{issue.time}</span>
         </div>
       </div>
-      <div onClick={e => e.stopPropagation()}>
-        <ChangeActionMenu status={status} onSetStatus={onSetStatus} />
-      </div>
     </div>
   );
 }
 
-function ChangeActionMenu({ status, onSetStatus }) {
+function ChangeActionMenu({ status, onSetStatus, fullWidth }) {
+  const containerStyle = fullWidth ? { width: '100%' } : undefined;
+  const actionStyle = fullWidth ? { width: '100%', height: 40, justifyContent: 'center' } : undefined;
   if (status === 'ack') {
     return (
       <span style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
         padding: '8px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700,
         background: '#E7F5EF', color: '#3F6B4E',
+        ...actionStyle,
       }}>
         <Icon name="check" size={14} color="#3F6B4E" /> Acknowledged
       </span>
@@ -460,6 +635,7 @@ function ChangeActionMenu({ status, onSetStatus }) {
         display: 'inline-flex', alignItems: 'center', gap: 6,
         padding: '8px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700,
         background: '#FFF8E6', color: '#92703A',
+        ...actionStyle,
       }}>
         <Icon name="activity" size={14} color="#92703A" /> For Monitoring
       </span>
@@ -469,6 +645,8 @@ function ChangeActionMenu({ status, onSetStatus }) {
     <MoreActionMenu
       label="More action"
       icon="plus"
+      style={containerStyle}
+      buttonStyle={actionStyle}
       items={[
         { icon: 'check',    label: 'Acknowledge',  sub: 'Mark this change as reviewed and resolved.', onClick: () => onSetStatus('ack') },
         { icon: 'activity', label: 'Move to Watch', sub: 'Keep monitoring — change stays open.',       onClick: () => onSetStatus('monitor') },
@@ -487,6 +665,8 @@ function ChangeDetailPage({ residentId, issueId, onBack }) {
   const [discussOpen, setDiscussOpen] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [status, setStatus] = useState(null);
+  const v = useViewport();
+  const isPhone = v.isMobile;
   const sev = RISK[issue.severity] || RISK.watch;
   const iconMap = { vitals: 'activity', wound: 'heart', med: 'pill', fall: 'shield', lab: 'fileText', nutrition: 'droplet', sepsis: 'alertTriangle', rehab: 'trendingDown' };
   const drivers = (issue.drivers || r.drivers || []).slice(0, 3);
@@ -503,93 +683,119 @@ function ChangeDetailPage({ residentId, issueId, onBack }) {
     { when: 'Today',        text: `Risk increased → ${sev.label}`, tone: '#E53E3E' },
   ];
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <button onClick={onBack} style={{
-        background: 'transparent', border: 0, color: '#845EC2', fontSize: 13, fontWeight: 700,
+        background: 'transparent', border: 0, color: '#845EC2', fontSize: 13, fontWeight: 800,
         cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: 0, alignSelf: 'flex-start',
       }}>
-        <Icon name="chevronLeft" size={16} color="#845EC2" /> Back
+        <Icon name="chevronLeft" size={16} color="#845EC2" /> Back to Changes
       </button>
-      <Card style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: sev.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name={iconMap[issue.kind] || 'activity'} size={24} color={sev.fg} />
+
+      <Card style={{ padding: isPhone ? 16 : 20, display: 'flex', flexDirection: 'column', gap: 14, borderLeft: `4px solid ${sev.dot}` }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <div style={{ width: 44, height: 44, borderRadius: 10, background: sev.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Icon name={iconMap[issue.kind] || 'activity'} size={22} color={sev.fg} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em' }}>{issue.title}</div>
-            <div style={{ fontSize: 13, color: '#6A7282', marginTop: 2 }}>{r.name} · Rm {r.room} · {r.unit} · <code style={{ fontFamily: 'JetBrains Mono', fontSize: 12 }}>MRN {r.mrn}</code></div>
+            <div style={{ fontSize: isPhone ? 18 : 22, fontWeight: 800, lineHeight: isPhone ? '23px' : '28px', color: '#1C192E' }}>{issue.title}</div>
+            <div style={{ fontSize: 12, color: '#6A7282', marginTop: 5, lineHeight: '17px' }}>
+              {r.name} · Rm {r.room} · {r.unit} · MRN {r.mrn}
+            </div>
           </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <RiskBadge level={issue.severity} />
+          <Chip tone="info">{issue.source}</Chip>
+          <Chip tone="todo">{issue.time}</Chip>
+          <Chip tone={r.code === 'Full Code' ? 'info' : r.code.startsWith('DNR') ? 'voided' : 'todo'}>Code: {r.code}</Chip>
+          {status && <Chip tone={status === 'ack' ? 'signed' : 'watch'} dot>{status === 'ack' ? 'Acknowledged' : 'For Monitoring'}</Chip>}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', paddingBottom: 16, borderBottom: '1px solid #EEEEEE' }}>
-          <div style={{ fontSize: 12, color: '#6A7282' }}>{issue.source} · {issue.time}</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <ChangeActionMenu status={status} onSetStatus={s => { setStatus(s); s === 'ack' ? emitToast('Change acknowledged.') : emitToast('Moved to For Monitoring.', 'info'); }} />
-            <Button variant="secondary" icon="users" onClick={() => setDiscussOpen(true)}>Discuss with Team</Button>
-            <Button variant="primary" icon="phone" onClick={() => setNotifyOpen(true)}>Notify Provider</Button>
+
+        <div style={{ padding: 12, borderRadius: 10, background: '#FAFAFC', border: '1px solid #EEEEEE', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: '#67568C', letterSpacing: '0.05em' }}>RECOMMENDED NEXT HUMAN DECISION</div>
+          <div style={{ fontSize: 14, color: '#1C192E', lineHeight: '20px', fontWeight: 700 }}>{actions[0] ? actions[0].title : 'Review this change with the care team'}</div>
+          <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px' }}>{actions[0] ? actions[0].sub : 'Confirm evidence, select the intervention, and document the outcome.'}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: 8, alignItems: 'stretch' }}>
+            <Button variant="primary" icon="phone" style={{ width: '100%' }} onClick={() => setNotifyOpen(true)}>Notify Provider</Button>
+            <Button variant="secondary" icon="users" style={{ width: '100%' }} onClick={() => setDiscussOpen(true)}>Discuss Team</Button>
+            <ChangeActionMenu fullWidth status={status} onSetStatus={s => { setStatus(s); s === 'ack' ? emitToast('Change acknowledged.') : emitToast('Moved to For Monitoring.', 'info'); }} />
           </div>
         </div>
+      </Card>
 
-        <div style={{ background: '#FAFAFA', borderRadius: 10, padding: 16, border: '1px solid #EEEEEE' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#52525B', letterSpacing: '0.06em', marginBottom: 8 }}>WHY THIS WAS FLAGGED</div>
+      <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1.05fr) minmax(280px, 0.95fr)', gap: 12 }}>
+        <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: '#52525B', letterSpacing: '0.06em' }}>WHY THIS WAS FLAGGED</div>
           <div style={{ fontSize: 14, color: '#1C192E', lineHeight: '20px' }}>{issue.detail}</div>
-          <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {reasons.map((rs, i) => (
-              <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, color: '#1C192E' }}>
-                <span style={{ width: 6, height: 6, borderRadius: 9999, background: sev.dot, marginTop: 7, flexShrink: 0 }} />
+              <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontSize: 13, color: '#1C192E', lineHeight: '18px' }}>
+                <span style={{ width: 7, height: 7, borderRadius: 9999, background: sev.dot, marginTop: 6, flexShrink: 0 }} />
                 <span>{rs}</span>
-              </li>
+              </div>
             ))}
-          </ul>
-        </div>
-
-        {drivers.length > 0 && (
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#52525B', letterSpacing: '0.06em', marginBottom: 8 }}>CLINICAL DOMAINS</div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          </div>
+          {drivers.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingTop: 4 }}>
               {drivers.map(id => {
                 const cat = RISK_CATEGORIES.find(c => c.id === id);
                 return cat ? <Chip key={id} tone="todo">{cat.label}</Chip> : null;
               })}
             </div>
-          </div>
-        )}
+          )}
+        </Card>
 
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#52525B', letterSpacing: '0.06em', marginBottom: 8 }}>SUGGESTED ACTIONS</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {actions.map((a, i) => (
-              <div key={i} style={{ border: '1px solid #E5E7EB', borderRadius: 10, padding: 12, display: 'flex', gap: 12, alignItems: 'center', background: '#fff' }}>
-                <div style={{ width: 32, height: 32, borderRadius: 9999, background: '#F5F2FD', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name={a.kind} size={16} color="#845EC2" />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>{a.title}</div>
-                  <div style={{ fontSize: 12, color: '#6A7282', marginTop: 2 }}>{a.sub}</div>
-                </div>
-                <IconButton icon="plus" color="#845EC2" onClick={() => emitToast(`Queued: ${a.title}`)} />
+        <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: '#52525B', letterSpacing: '0.06em' }}>ACTION QUEUE</div>
+          {actions.map((a, i) => (
+            <button key={i} onClick={() => emitToast(`Queued: ${a.title}`)} style={{
+              border: '1px solid #E5E7EB', borderRadius: 10, padding: 12, display: 'flex',
+              gap: 10, alignItems: 'center', background: i === 0 ? '#F5F2FD' : '#fff',
+              cursor: 'pointer', textAlign: 'left',
+            }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9999, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid #E5E7EB' }}>
+                <Icon name={a.kind} size={16} color="#845EC2" />
               </div>
-            ))}
-          </div>
-        </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#1C192E' }}>{a.title}</div>
+                <div style={{ fontSize: 12, color: '#6A7282', marginTop: 2, lineHeight: '17px' }}>{a.sub}</div>
+              </div>
+              <Icon name="plus" size={16} color="#845EC2" />
+            </button>
+          ))}
+        </Card>
 
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#52525B', letterSpacing: '0.06em', marginBottom: 10 }}>TIMELINE</div>
+        <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: '#52525B', letterSpacing: '0.06em' }}>TIMELINE</div>
           <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 12, position: 'relative' }}>
             <span style={{ position: 'absolute', top: 6, bottom: 6, left: 5, width: 1, background: '#E5E7EB' }} />
             {timeline.map((ev, i) => (
-              <li key={i} style={{ display: 'flex', gap: 14, position: 'relative' }}>
+              <li key={i} style={{ display: 'flex', gap: 13, position: 'relative' }}>
                 <span style={{ width: 11, height: 11, borderRadius: 9999, background: ev.tone, marginTop: 4, flexShrink: 0, zIndex: 1, border: '2px solid #fff' }} />
-                <div>
-                  <div style={{ fontSize: 12, color: '#6A7282', fontWeight: 600 }}>{ev.when}</div>
-                  <div style={{ fontSize: 13, color: '#1C192E', marginTop: 2 }}>{ev.text}</div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: '#6A7282', fontWeight: 700 }}>{ev.when}</div>
+                  <div style={{ fontSize: 13, color: '#1C192E', marginTop: 2, lineHeight: '18px' }}>{ev.text}</div>
                 </div>
               </li>
             ))}
           </ol>
-        </div>
+        </Card>
 
-      </Card>
+        <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: '#52525B', letterSpacing: '0.06em' }}>CARE TEAM</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {team.slice(0, 6).map(u => (
+              <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 9px', border: '1px solid #E5E7EB', borderRadius: 9999, background: '#fff' }}>
+                <Avatar initials={u.initials} seed={u.id} size={24} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#1C192E' }}>{u.short}</span>
+              </div>
+            ))}
+          </div>
+          <Button variant="secondary" icon="message" onClick={() => setDiscussOpen(true)}>Open Team Discussion</Button>
+        </Card>
+      </div>
+
       {notifyOpen && <NotifyProviderModal r={r} issue={issue} team={team} onClose={() => setNotifyOpen(false)} />}
       {discussOpen && <DiscussTeamModal r={r} issue={issue} team={team} onClose={() => setDiscussOpen(false)} />}
     </div>
@@ -757,7 +963,7 @@ function DiscussTeamModal({ r, issue, team, onClose }) {
     <ModalShell title="Discuss with Team" subtitle={`Start a thread about ${r.name}. ${r.name} will be tagged automatically.`} onClose={onClose} width={580}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ background: '#F5F2FD', borderRadius: 10, padding: 12, fontSize: 12, color: '#67568C', display: 'flex', gap: 10, alignItems: 'center' }}>
-          <Icon name="sparkles" size={14} color="#67568C" />
+          <Icon name="message" size={14} color="#67568C" />
           {selected.length === 0 && 'Select at least one team member to start a thread.'}
           {selected.length === 1 && 'Direct message — patient will be auto-tagged in the thread.'}
           {selected.length > 1 && `Group chat with ${selected.length} members — patient auto-tagged. Saved to Care Plan.`}
@@ -864,7 +1070,6 @@ function NotesTab({ r, team }) {
             <div style={{ display: 'flex', gap: 4 }}>
               <IconButton icon="paperclip" />
               <IconButton icon="users" title="Tag people" />
-              <IconButton icon="sparkles" title="AI suggest" color="#845EC2" />
             </div>
             <Button variant="primary" size="sm" icon="send" onClick={send}>Post Note</Button>
           </div>
@@ -909,18 +1114,18 @@ function CarePlanTab({ r, team }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ background: '#FAFAFA', borderRadius: 8, padding: 16, border: '1px solid #EEEEEE' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <Icon name="sparkles" size={14} color="#52525B" />
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#52525B', letterSpacing: '0.04em' }}>AI CARE PLAN SUMMARY</div>
+          <Icon name="fileText" size={14} color="#52525B" />
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#52525B', letterSpacing: '0.04em' }}>CARE PLAN SUMMARY</div>
         </div>
         <div style={{ fontSize: 13, lineHeight: '19px', color: '#1C192E' }}>
           Active goals: <b>stabilize CHF</b>, <b>advance sacral wound healing</b>, <b>target home discharge in 4 weeks</b>.
-          Open threads: nephrology consult pending response, repositioning compliance flagged. Next AI check-in: 14:00.
+          Open threads: nephrology consult pending response, repositioning compliance flagged. Next care-plan review: 14:00.
         </div>
       </div>
       {items.map(item => <CarePlanThread key={item.id} item={item} team={team} />)}
       {items.length === 0 && (
         <div style={{ textAlign: 'center', padding: 32, color: '#99A1AF', fontSize: 13 }}>
-          No conversations yet. Start a thread from the Care Team tab — the AI will preserve it as continuity.
+          No conversations yet. Start a thread from the Care Team tab to preserve it as continuity.
         </div>
       )}
     </div>
@@ -964,7 +1169,7 @@ function CarePlanThread({ item, team }) {
           </div>
           <div style={{ marginTop: 12, padding: 12, background: '#F5F2FD', borderRadius: 8, fontSize: 13, lineHeight: '19px', color: '#1C192E' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: '#67568C', letterSpacing: '0.04em', marginBottom: 6 }}>
-              <Icon name="sparkles" size={12} color="#67568C" /> AI SUMMARY
+              <Icon name="fileText" size={12} color="#67568C" /> SUMMARY
             </div>
             {item.summary}
           </div>
@@ -1029,6 +1234,7 @@ function ScheduleModal({ r, team, onClose }) {
   const isPhone = v.isMobile;
 
   const finalIds = includeAll ? team.map(u => u.id) : selected;
+  const scheduled = SCHEDULE_EVENTS_SEED.filter(event => event.residentId === r.id);
 
   function toggle(id) {
     setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
@@ -1053,6 +1259,27 @@ function ScheduleModal({ r, team, onClose }) {
               <Button variant="ghost" icon="phone" style={{ flex: 1 }}>Voice</Button>
             </div>
           </div>
+        </div>
+        <div style={{ padding: 12, border: '1px solid #E5E7EB', borderRadius: 10, background: scheduled.length ? '#E7F5EF' : '#FAFAFC' }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: scheduled.length ? '#00795E' : '#6A7282', letterSpacing: '0.06em', marginBottom: 8 }}>
+            CURRENT SCHEDULE
+          </div>
+          {scheduled.length ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {scheduled.map(event => (
+                <div key={event.id} style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#fff', border: '1px solid #DDEFE7', borderRadius: 8, padding: 9 }}>
+                  <Icon name="calendar" size={15} color="#00795E" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 900, color: '#1C192E' }}>{event.title}</div>
+                    <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2 }}>{event.dateLabel} · {event.startLabel}-{event.endLabel} · {event.location}</div>
+                  </div>
+                  <Chip tone={event.status === 'Tentative' ? 'watch' : 'stable'}>{event.status}</Chip>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: '#6A7282' }}>No scheduled huddles, family conferences, consults, or care-team meetings are currently attached to this resident.</div>
+          )}
         </div>
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -1104,7 +1331,7 @@ function EscalateModal({ r, team, onClose }) {
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#6A7282', marginBottom: 6 }}>REASON</div>
           <textarea value={reason} onChange={e => setReason(e.target.value)}
-            placeholder="What's happening? AI will pre-fill from the latest changes if you leave this blank."
+            placeholder="What's happening? Leave blank to use the latest documented change."
             style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: 6, padding: 12, font: '14px Inter', resize: 'vertical', minHeight: 90, boxSizing: 'border-box' }} />
         </div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
@@ -1130,17 +1357,32 @@ function SchedulePage({ onOpenResident }) {
   const hours = Array.from({ length: 11 }, (_, i) => 7 + i); // 7am-5pm
 
   const events = useMemo(() => {
-    const r1 = RESIDENTS[0], r2 = RESIDENTS[1] || RESIDENTS[0], r3 = RESIDENTS[2] || RESIDENTS[0], r4 = RESIDENTS[3] || RESIDENTS[0];
     const todayIdx = (day + 6) % 7;
-    return [
-      { id: 'e1', day: todayIdx, start: 9,  end: 9.5,  title: 'Care plan review', resident: r1, kind: 'meeting' },
-      { id: 'e2', day: todayIdx, start: 11, end: 11.5, title: 'Wound consult',    resident: r2, kind: 'meeting' },
-      { id: 'e3', day: todayIdx, start: 14, end: 15,   title: 'Family conference', resident: r1, kind: 'family' },
-      { id: 'e4', day: Math.min(todayIdx + 1, 6), start: 8,  end: 9,  title: 'Daily huddle', kind: 'huddle' },
-      { id: 'e5', day: Math.min(todayIdx + 1, 6), start: 13, end: 13.5, title: 'Medication review', resident: r3, kind: 'meeting' },
-      { id: 'e6', day: Math.min(todayIdx + 2, 6), start: 10, end: 10.5, title: 'Discharge planning', resident: r4, kind: 'meeting' },
-      { id: 'e7', day: Math.min(todayIdx + 3, 6), start: 15, end: 16,   title: 'PT assessment',     resident: r2, kind: 'meeting' },
-    ];
+    const dateOffsets = { Today: 0, Tomorrow: 1, Friday: Math.max(0, 4 - todayIdx) };
+    function parseTime(label) {
+      const match = label.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+      if (!match) return 9;
+      let hour = Number(match[1]);
+      const minute = Number(match[2]) / 60;
+      const period = match[3].toUpperCase();
+      if (period === 'PM' && hour !== 12) hour += 12;
+      if (period === 'AM' && hour === 12) hour = 0;
+      return hour + minute;
+    }
+    return SCHEDULE_EVENTS_SEED.map(event => {
+      const offset = dateOffsets[event.dateLabel] == null ? 0 : dateOffsets[event.dateLabel];
+      const resident = event.residentId ? RESIDENTS.find(r => r.id === event.residentId) : null;
+      const start = parseTime(event.startLabel);
+      const end = parseTime(event.endLabel);
+      return {
+        ...event,
+        day: Math.min(todayIdx + offset, 6),
+        start,
+        end,
+        resident,
+        kind: event.kind === 'family' ? 'family' : event.kind === 'huddle' ? 'huddle' : 'meeting',
+      };
+    });
   }, [day]);
 
   const eventColors = {
@@ -1155,7 +1397,7 @@ function SchedulePage({ onOpenResident }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader
         title="Schedule"
-        subtitle="Care team meetings, huddles, and family conferences for this facility."
+        subtitle="Care team meetings, huddles, consults, and family conferences. Resident profile cards show the next scheduled item."
         actions={[
           <Button key="new" variant="primary" icon="plus" onClick={() => emitToast('Open a resident profile to schedule a meeting.', 'info')}>New Meeting</Button>,
         ]}

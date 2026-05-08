@@ -2,11 +2,13 @@
 
 const NAV_PRIMARY = [
   { id: 'home',      label: 'Home',       icon: 'home' },
-  { id: 'changes',   label: 'Changes',    icon: 'activity' },
   { id: 'residents', label: 'Residents',  icon: 'users' },
-  { id: 'watchlist', label: 'Watchlist',  icon: 'eye' },
+  { id: 'watchlist', label: 'Watchlists', icon: 'eye' },
+  { id: 'actions',   label: 'Actions',    icon: 'check' },
 ];
 const NAV_SECONDARY = [
+  { id: 'changes',   label: 'Changes',        icon: 'activity' },
+  { id: 'messages',  label: 'Messages',        icon: 'message' },
   { id: 'huddle',    label: 'Huddle',          icon: 'message' },
   { id: 'schedule',  label: 'Schedule',        icon: 'calendar' },
   { id: 'reports',   label: 'Reports',         icon: 'fileText' },
@@ -20,48 +22,88 @@ const NOTIFICATIONS_SEED = [
   { id: 'n5', icon: 'users', tone: '#0081CF', title: 'Huddle scheduled', body: 'Skilled Nursing · 14:00 today', time: '4h ago' },
 ];
 
-function AppHeader({ user, onLogout, onSearch, onNav, onMenu, mobile }) {
+function AppHeader({ user, onLogout, onNav, onOpenResident, counts, mobile }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQ, setSearchQ] = useState('');
   const unread = NOTIFICATIONS_SEED.filter(n => n.unread).length;
+  const messageUnread = counts && counts.messages ? counts.messages : 0;
+  const searchResults = useMemo(() => {
+    const q = searchQ.trim().toLowerCase();
+    const pool = RESIDENTS.filter(r => {
+      if (!q) return true;
+      return r.name.toLowerCase().includes(q)
+        || r.mrn.toLowerCase().includes(q)
+        || r.room.toLowerCase().includes(q)
+        || r.unit.toLowerCase().includes(q);
+    });
+    return pool.slice(0, 6);
+  }, [searchQ]);
+
+  function openSearch() {
+    setSearchOpen(true);
+    setNotifOpen(false);
+  }
+
+  function openResidentFromSearch(id) {
+    setSearchOpen(false);
+    setSearchQ('');
+    onOpenResident(id);
+  }
+
   return (
     <header style={{
       height: 60, background: '#fff', borderBottom: '1px solid #E5E7EB',
-      display: 'flex', alignItems: 'center', padding: mobile ? '0 12px' : '0 24px', gap: mobile ? 8 : 12,
+      display: 'flex', alignItems: 'center', padding: mobile ? '0 8px' : '0 24px', gap: mobile ? 6 : 12,
       position: 'sticky', top: 0, zIndex: 30, flexShrink: 0,
     }}>
-      {mobile && (
-        <IconButton icon="list" onClick={onMenu} title="Menu" />
-      )}
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <Brand height={26} />
+      <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
+        <Brand height={mobile ? 22 : 26} />
       </div>
       <div style={{ flex: 1 }} />
 
-      {!mobile && (
-        <div style={{ position: 'relative' }}>
-          {!searchOpen ? (
-            <IconButton icon="search" title="Search" onClick={() => setSearchOpen(true)} />
-          ) : (
-            <div style={{
-              width: 320, background: '#F7F7F7', border: '1px solid #E5E7EB', borderRadius: 8, height: 38,
-              display: 'flex', alignItems: 'center', gap: 10, padding: '0 12px',
-            }}>
+      <IconButton icon="search" title="Search" onClick={openSearch} />
+      {searchOpen && (
+        <>
+          <div onClick={() => setSearchOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 45 }} />
+          <div style={{
+            position: 'fixed', top: 68, left: mobile ? 8 : 16, right: mobile ? 8 : 16, maxWidth: 680, margin: '0 auto',
+            background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12,
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)',
+            zIndex: 60, overflow: 'hidden', maxHeight: 'calc(100vh - 84px)', display: 'flex', flexDirection: 'column',
+          }}>
+            <div style={{ padding: 12, borderBottom: '1px solid #EEEEEE', display: 'flex', alignItems: 'center', gap: 10 }}>
               <Icon name="search" size={16} color="#99A1AF" />
-              <input autoFocus value={searchQ} onChange={e => setSearchQ(e.target.value)}
-                onBlur={() => { if (!searchQ) setSearchOpen(false); }}
-                placeholder="Search residents, MRN, rooms…"
-                style={{ flex: 1, border: 0, outline: 0, background: 'transparent', font: '14px Inter', color: '#1C192E' }} />
-              <IconButton icon="x" size={24} onClick={() => { setSearchQ(''); setSearchOpen(false); }} />
+              <input autoFocus value={searchQ} onInput={e => setSearchQ(e.target.value)}
+                placeholder="Search residents, MRN, room, unit..."
+                style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: 'transparent', font: '15px Inter', color: '#1C192E' }} />
+              <IconButton icon="x" size={28} onClick={() => { setSearchQ(''); setSearchOpen(false); }} />
             </div>
-          )}
-        </div>
+            <div style={{ overflowY: 'auto', padding: 8 }}>
+              {searchResults.map(r => (
+                <button key={r.id} onClick={() => openResidentFromSearch(r.id)} style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 8px', border: 0, background: '#fff', borderRadius: 8,
+                  cursor: 'pointer', textAlign: 'left',
+                }}>
+                  <Avatar initials={r.initials} seed={r.id} size={34} isResident />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#1C192E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+                    <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2 }}>Rm {r.room} · {r.unit} · MRN {r.mrn}</div>
+                  </div>
+                  <RiskBadge level={r.risk} score={r.score} compact />
+                </button>
+              ))}
+              {searchResults.length === 0 && (
+                <div style={{ padding: 22, textAlign: 'center', color: '#6A7282', fontSize: 13 }}>No residents found.</div>
+              )}
+            </div>
+          </div>
+        </>
       )}
-      {mobile && <IconButton icon="search" title="Search" onClick={() => emitToast('Search coming soon.', 'info')} />}
 
       <div style={{ position: 'relative' }}>
-        <IconButton icon="bell" title="Notifications" onClick={() => setNotifOpen(o => !o)} />
+        <IconButton icon="bell" title="Notifications" onClick={() => { setSearchOpen(false); setNotifOpen(o => !o); }} />
         {unread > 0 && (
           <span style={{
             position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, padding: '0 4px',
@@ -73,7 +115,9 @@ function AppHeader({ user, onLogout, onSearch, onNav, onMenu, mobile }) {
           <>
             <div onClick={() => setNotifOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
             <div style={{
-              position: 'absolute', top: 44, right: 0, width: mobile ? 'min(92vw, 360px)' : 360, maxHeight: 480, overflowY: 'auto',
+              position: 'fixed', top: 68, left: mobile ? 8 : 'auto', right: mobile ? 8 : 16,
+              width: mobile ? 'auto' : 360, maxWidth: mobile ? 'calc(100vw - 16px)' : 360,
+              maxHeight: 'calc(100vh - 84px)', overflowY: 'auto',
               background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12,
               boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)',
               zIndex: 50,
@@ -104,7 +148,23 @@ function AppHeader({ user, onLogout, onSearch, onNav, onMenu, mobile }) {
         )}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <IconButton icon="calendar" title="Schedule" onClick={() => { setNotifOpen(false); setSearchOpen(false); onNav('schedule'); }} />
+
+      <div style={{ position: 'relative' }}>
+        <IconButton icon="message" title="Messages" onClick={() => { setNotifOpen(false); setSearchOpen(false); onNav('messages'); }} />
+        {messageUnread > 0 && (
+          <span style={{
+            position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, padding: '0 4px',
+            borderRadius: 9999, background: '#845EC2', color: '#fff', fontSize: 9, fontWeight: 700,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff', pointerEvents: 'none',
+          }}>{messageUnread}</span>
+        )}
+      </div>
+
+      <button title="Profile" onClick={() => { setNotifOpen(false); setSearchOpen(false); onNav('profile'); }} style={{
+        display: 'flex', alignItems: 'center', gap: 10, border: 0, background: 'transparent',
+        cursor: 'pointer', padding: mobile ? 0 : '4px 6px', borderRadius: 8, minWidth: 0,
+      }}>
         <Avatar initials={user.initials} seed={user.id} size={34} />
         {!mobile && (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -112,14 +172,14 @@ function AppHeader({ user, onLogout, onSearch, onNav, onMenu, mobile }) {
             <span style={{ fontSize: 11, color: '#6A7282' }}>{user.role}</span>
           </div>
         )}
-        {!mobile && <IconButton icon="logout" title="Sign out" onClick={onLogout} />}
-      </div>
+      </button>
+      {!mobile && <IconButton icon="logout" title="Sign out" onClick={onLogout} />}
     </header>
   );
 }
 
 function SideNav({ active, onNav, counts }) {
-  const items = NAV_PRIMARY.map(it => it.id === 'changes' ? { ...it, badge: counts.changes } : it);
+  const items = NAV_PRIMARY.map(it => it.id === 'actions' ? { ...it, badge: counts.actions } : it);
   return (
     <aside style={{
       width: 248, background: '#fff', borderRight: '1px solid #E5E7EB',
@@ -140,19 +200,12 @@ function SideNav({ active, onNav, counts }) {
         border: '1px solid #C9EFE2', display: 'flex', flexDirection: 'column', gap: 8,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Icon name="sparkles" size={14} color="#00B295" />
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#00795E' }}>Continuity AI</span>
+          <Icon name="activity" size={14} color="#00B295" />
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#00795E' }}>Facility Status</span>
         </div>
         <div style={{ fontSize: 11, lineHeight: '16px', color: '#00795E' }}>
           117 residents · 14 active threads · 3 awaiting response
         </div>
-        <button style={{
-          marginTop: 4, padding: '8px 12px', borderRadius: 8, border: 0,
-          background: '#00C9A7', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        }} onClick={() => emitToast('AI assistant ready — ask anything.', 'info')}>
-          <Icon name="message" size={12} color="#fff" /> Ask AI
-        </button>
       </div>
     </aside>
   );
@@ -160,7 +213,7 @@ function SideNav({ active, onNav, counts }) {
 
 function MobileDrawer({ open, active, onNav, counts, user, onLogout, onClose }) {
   if (!open) return null;
-  const items = NAV_PRIMARY.map(it => it.id === 'changes' ? { ...it, badge: counts.changes } : it);
+  const items = NAV_SECONDARY.map(it => it.id === 'messages' ? { ...it, badge: counts.messages } : it);
   return (
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, background: 'rgba(28,25,46,0.5)', zIndex: 80,
@@ -168,7 +221,7 @@ function MobileDrawer({ open, active, onNav, counts, user, onLogout, onClose }) 
       <aside onClick={e => e.stopPropagation()} style={{
         position: 'absolute', top: 0, left: 0, bottom: 0, width: 'min(86vw, 320px)',
         background: '#fff', display: 'flex', flexDirection: 'column', padding: 16, gap: 16,
-        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflowY: 'auto',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Brand height={26} />
@@ -181,13 +234,16 @@ function MobileDrawer({ open, active, onNav, counts, user, onLogout, onClose }) 
             <div style={{ fontSize: 11, color: '#6A7282' }}>{user.role}</div>
           </div>
         </div>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#99A1AF', letterSpacing: '0.08em' }}>FACILITY</div>
+        <button onClick={() => { onNav('profile'); onClose(); }} style={{
+          padding: '10px 12px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff',
+          color: '#1C192E', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <Icon name="user" size={16} color="#845EC2" /> Open profile & security
+        </button>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#99A1AF', letterSpacing: '0.08em' }}>MORE</div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {items.map(it => <NavItem key={it.id} item={it} active={active === it.id} onClick={() => { onNav(it.id); onClose(); }} />)}
-        </nav>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#99A1AF', letterSpacing: '0.08em' }}>WORKSPACE</div>
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {NAV_SECONDARY.map(it => <NavItem key={it.id} item={it} active={active === it.id} onClick={() => { onNav(it.id); onClose(); }} />)}
         </nav>
         <div style={{ flex: 1 }} />
         <button onClick={onLogout} style={{
@@ -202,12 +258,12 @@ function MobileDrawer({ open, active, onNav, counts, user, onLogout, onClose }) 
   );
 }
 
-function MobileTabBar({ active, onNav, counts }) {
+function MobileTabBar({ active, onNav, onMenu, counts }) {
   const items = [
-    { id: 'home',      label: 'Home',      icon: 'home' },
-    { id: 'changes',   label: 'Changes',   icon: 'activity', badge: counts.changes },
-    { id: 'residents', label: 'Residents', icon: 'users' },
-    { id: 'watchlist', label: 'Watch',     icon: 'eye' },
+    { id: 'home',      label: 'Home',       icon: 'home' },
+    { id: 'residents', label: 'Residents',  icon: 'users' },
+    { id: 'watchlist', label: 'Watchlists', icon: 'eye' },
+    { id: 'actions',   label: 'Actions',    icon: 'check', badge: counts.actions },
   ];
   return (
     <nav style={{
@@ -220,14 +276,23 @@ function MobileTabBar({ active, onNav, counts }) {
         const isActive = active === it.id;
         const color = isActive ? '#00B295' : '#6A7282';
         return (
-          <button key={it.id} onClick={() => onNav(it.id)} style={{
+          <button key={it.id} onClick={() => onNav(it.id)} title={it.label} style={{
             flex: 1, background: 'transparent', border: 0, cursor: 'pointer',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            padding: '8px 4px', position: 'relative',
-            color, fontFamily: 'Inter', fontSize: 11, fontWeight: 600,
+            padding: '8px 2px', position: 'relative',
+            color, fontFamily: 'Inter', fontSize: 10, fontWeight: 700,
           }}>
-            <div style={{ position: 'relative' }}>
-              <Icon name={it.icon} size={22} color={color} strokeWidth={isActive ? 2.4 : 2} />
+            <div style={{
+              position: 'relative',
+              width: 'auto',
+              height: 'auto',
+              borderRadius: 9999,
+              background: 'transparent',
+              boxShadow: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginTop: 0,
+            }}>
+              <Icon name={it.icon} size={21} color={color} strokeWidth={isActive ? 2.4 : 2} />
               {it.badge > 0 && (
                 <span style={{
                   position: 'absolute', top: -4, right: -8, minWidth: 16, height: 16, padding: '0 4px',
@@ -236,11 +301,89 @@ function MobileTabBar({ active, onNav, counts }) {
                 }}>{it.badge}</span>
               )}
             </div>
-            <span>{it.label}</span>
+            <span style={{ whiteSpace: 'nowrap' }}>{it.label}</span>
           </button>
         );
       })}
     </nav>
+  );
+}
+
+function MenuPage({ active, onNav, counts, user, onLogout }) {
+  const items = [
+    ...NAV_SECONDARY.map(it => it.id === 'messages' ? { ...it, badge: counts.messages } : it),
+    { id: 'profile', label: 'Profile', icon: 'user' },
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <PageHeader
+        title="Menu"
+        subtitle={`${user.name} · ${user.role}`}
+      />
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+        {items.map(item => {
+          const selected = active === item.id;
+          return (
+            <button key={item.id} onClick={() => onNav(item.id)} style={{
+              width: '100%',
+              minHeight: 58,
+              border: `1px solid ${selected ? '#00C9A7' : '#E5E7EB'}`,
+              background: selected ? '#E7F5EF' : '#fff',
+              borderRadius: 10,
+              padding: '12px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              cursor: 'pointer',
+              textAlign: 'left',
+            }}>
+              <div style={{
+                width: 34,
+                height: 34,
+                borderRadius: 9,
+                background: selected ? '#fff' : '#F4F4F5',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <Icon name={item.icon} size={17} color={selected ? '#00795E' : '#6A7282'} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: selected ? '#00795E' : '#1C192E' }}>{item.label}</div>
+              </div>
+              {item.badge > 0 && (
+                <span style={{
+                  minWidth: 22, height: 22, padding: '0 6px', borderRadius: 9999,
+                  background: '#845EC2', color: '#fff', fontSize: 11, fontWeight: 800,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                }}>{item.badge}</span>
+              )}
+              <Icon name="chevronRight" size={16} color="#99A1AF" />
+            </button>
+          );
+        })}
+      </div>
+
+      <button onClick={onLogout} style={{
+        minHeight: 46,
+        border: '1px solid #E5E7EB',
+        background: '#fff',
+        borderRadius: 10,
+        padding: '10px 14px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        cursor: 'pointer',
+        color: '#1C192E',
+        fontSize: 13,
+        fontWeight: 800,
+      }}>
+        <Icon name="logout" size={16} color="#1C192E" /> Sign out
+      </button>
+    </div>
   );
 }
 
@@ -289,4 +432,4 @@ function PageHeader({ title, subtitle, actions, children }) {
   );
 }
 
-Object.assign(window, { AppHeader, SideNav, MobileDrawer, MobileTabBar, PageHeader });
+Object.assign(window, { AppHeader, SideNav, MobileDrawer, MobileTabBar, MenuPage, PageHeader });
