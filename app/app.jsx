@@ -91,6 +91,7 @@ function App() {
         onOpenResident={onOpenResident}
         counts={counts}
         mobile={isCompact}
+        active={activeNav}
       />
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
         <main className="ois-page" style={{ flex: 1, minWidth: 0, width: '100%', maxWidth: 1024 }}>

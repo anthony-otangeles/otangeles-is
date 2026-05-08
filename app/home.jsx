@@ -26,7 +26,7 @@ function HomePage({ user, actions, onOpenResident, onOpenAction, onNav }) {
   const isPhone = v.isMobile;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: isPhone ? 28 : 32 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: isPhone ? 34 : 42 }}>
       {/* Greeting + facility summary */}
       <div style={{
         display: 'grid', gridTemplateColumns: '1fr', gap: 14,
@@ -91,7 +91,7 @@ function HomePage({ user, actions, onOpenResident, onOpenAction, onNav }) {
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) minmax(280px, 0.75fr)', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) minmax(280px, 0.75fr)', gap: isPhone ? 18 : 24 }}>
         <div>
           <SectionHeader title="Unit Risk Heatmap" subtitle="Tap a unit to narrow the resident directory." />
           <UnitRiskHeatmap actions={actions} onSelectUnit={unit => { emitToast(`Opening residents for ${unit}.`, 'info'); onNav('residents'); }} />
@@ -198,7 +198,7 @@ function BriefBullet({ text, tone }) {
 
 function SectionHeader({ title, subtitle, right }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
       <div>
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em' }}>{title}</h2>
         {subtitle && <div style={{ fontSize: 13, color: '#6A7282', marginTop: 2 }}>{subtitle}</div>}

@@ -212,7 +212,7 @@ const C = {
 // Risk tones
 const RISK = {
   critical: { bg: '#FDECEC', fg: '#E53E3E', dot: '#E53E3E', label: 'Critical' },
-  high:     { bg: '#FFF3EF', fg: '#FF6E6C', dot: '#FF6E6C', label: 'High' },
+  high:     { bg: '#FFF7ED', fg: '#C2410C', dot: '#F97316', label: 'High' },
   watch:    { bg: '#FFF8E6', fg: '#B58420', dot: '#E9C05F', label: 'Watch' },
   stable:   { bg: '#E7F5EF', fg: '#29BB89', dot: '#29BB89', label: 'Stable' },
 };
@@ -310,11 +310,11 @@ function Avatar({ initials = 'JC', size = 36, seed, ring, isResident }) {
   return (
     <div style={{
       width: size, height: size, borderRadius: 9999, flexShrink: 0,
-      background: '#F4F4F5', position: 'relative', overflow: 'hidden',
+      background: '#E5E7EB', position: 'relative', overflow: 'hidden',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       boxShadow: ring ? `0 0 0 2px ${ring}` : 'none',
     }}>
-      <Icon name="user" size={size * 0.55} color="#99A1AF" />
+      <Icon name="user" size={size * 0.55} color="#6A7282" />
     </div>
   );
 }
@@ -328,6 +328,11 @@ function Chip({ tone = 'todo', children, dot, style }) {
     voided:  { bg: '#F4F4F5', fg: '#6A7282' },
     pending: { bg: '#F4F4F5', fg: '#52525B' },
     info:    { bg: '#F4F4F5', fg: '#52525B' },
+    assigned: { bg: '#F4F4F5', fg: '#52525B' },
+    inProgress: { bg: '#E6F2FB', fg: '#0F6FA6' },
+    completed: { bg: '#E7F5EF', fg: '#00795E' },
+    online: { bg: '#E7F5EF', fg: '#00795E' },
+    domain: { bg: '#F5F2FD', fg: '#67568C' },
     // Risk tones keep clinical signal — but desaturated.
     critical: { bg: '#FDECEC', fg: '#B91C1C' },
     high:     { bg: '#FFF3EF', fg: '#C2410C' },
@@ -362,6 +367,7 @@ function Button({ variant = 'primary', icon, rightIcon, children, onClick, style
     ghost: { background: hover ? '#F4F4F5' : 'transparent', color: '#1C192E', border: '1px solid transparent' },
     dark: { background: hover ? '#000' : '#1C192E', color: '#fff', border: '1px solid transparent' },
     danger: { background: hover ? '#DC2626' : '#fff', color: hover ? '#fff' : '#DC2626', border: hover ? '1px solid #DC2626' : '1px solid #FECACA' },
+    dangerOutline: { background: hover ? '#FDECEC' : '#fff', color: '#B91C1C', border: '1px solid #FCA5A5' },
     coral: { background: hover ? '#A11D1D' : '#B91C1C', color: '#fff', border: '1px solid transparent' },
     mint: { background: hover ? '#00B295' : '#00C9A7', color: '#fff', border: '1px solid transparent' },
     lavender: { background: hover ? '#67568C' : '#845EC2', color: '#fff', border: '1px solid transparent' },
@@ -818,7 +824,36 @@ const NOTIFICATIONS_SEED = [
   { id: 'n5', icon: 'users', tone: '#0081CF', title: 'Huddle scheduled', body: 'Skilled Nursing · 14:00 today', time: '4h ago' },
 ];
 
-function AppHeader({ user, onLogout, onNav, onOpenResident, counts, mobile }) {
+function HeaderIconButton({ icon, title, active, onClick, badge, badgeColor = '#845EC2' }) {
+  return (
+    <button title={title} onClick={onClick} style={{
+      width: 36,
+      height: 36,
+      borderRadius: 9999,
+      border: `1px solid ${active ? '#CDB8F0' : 'transparent'}`,
+      background: active ? '#F5F2FD' : 'transparent',
+      color: active ? '#67568C' : '#6A7282',
+      cursor: 'pointer',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+      transition: 'background 150ms, border-color 150ms, color 150ms',
+    }}>
+      <Icon name={icon} size={18} color={active ? '#67568C' : '#6A7282'} />
+      {active && <span style={{ position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: 9999, background: '#845EC2' }} />}
+      {badge > 0 && (
+        <span style={{
+          position: 'absolute', top: 2, right: 2, minWidth: 16, height: 16, padding: '0 4px',
+          borderRadius: 9999, background: badgeColor, color: '#fff', fontSize: 9, fontWeight: 700,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff', pointerEvents: 'none',
+        }}>{badge}</span>
+      )}
+    </button>
+  );
+}
+
+function AppHeader({ user, onLogout, onNav, onOpenResident, counts, mobile, active }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQ, setSearchQ] = useState('');
@@ -854,11 +889,11 @@ function AppHeader({ user, onLogout, onNav, onOpenResident, counts, mobile }) {
       position: 'sticky', top: 0, zIndex: 30, flexShrink: 0,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
-        <Brand height={mobile ? 22 : 26} />
+        <Brand height={mobile ? 28 : 34} />
       </div>
       <div style={{ flex: 1 }} />
 
-      <IconButton icon="search" title="Search" onClick={openSearch} />
+      <HeaderIconButton icon="search" title="Search" active={searchOpen} onClick={openSearch} />
       {searchOpen && (
         <>
           <div onClick={() => setSearchOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 45 }} />
@@ -899,14 +934,7 @@ function AppHeader({ user, onLogout, onNav, onOpenResident, counts, mobile }) {
       )}
 
       <div style={{ position: 'relative' }}>
-        <IconButton icon="bell" title="Notifications" onClick={() => { setSearchOpen(false); setNotifOpen(o => !o); }} />
-        {unread > 0 && (
-          <span style={{
-            position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, padding: '0 4px',
-            borderRadius: 9999, background: '#E53E3E', color: '#fff', fontSize: 9, fontWeight: 700,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff', pointerEvents: 'none',
-          }}>{unread}</span>
-        )}
+        <HeaderIconButton icon="bell" title="Notifications" active={notifOpen} badge={unread} badgeColor="#E53E3E" onClick={() => { setSearchOpen(false); setNotifOpen(o => !o); }} />
         {notifOpen && (
           <>
             <div onClick={() => setNotifOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
@@ -944,17 +972,10 @@ function AppHeader({ user, onLogout, onNav, onOpenResident, counts, mobile }) {
         )}
       </div>
 
-      <IconButton icon="calendar" title="Schedule" onClick={() => { setNotifOpen(false); setSearchOpen(false); onNav('schedule'); }} />
+      <HeaderIconButton icon="calendar" title="Schedule" active={active === 'schedule'} onClick={() => { setNotifOpen(false); setSearchOpen(false); onNav('schedule'); }} />
 
       <div style={{ position: 'relative' }}>
-        <IconButton icon="message" title="Messages" onClick={() => { setNotifOpen(false); setSearchOpen(false); onNav('messages'); }} />
-        {messageUnread > 0 && (
-          <span style={{
-            position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, padding: '0 4px',
-            borderRadius: 9999, background: '#845EC2', color: '#fff', fontSize: 9, fontWeight: 700,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff', pointerEvents: 'none',
-          }}>{messageUnread}</span>
-        )}
+        <HeaderIconButton icon="message" title="Messages" active={active === 'messages'} badge={messageUnread} onClick={() => { setNotifOpen(false); setSearchOpen(false); onNav('messages'); }} />
       </div>
 
       <button title="Profile" onClick={() => { setNotifOpen(false); setSearchOpen(false); onNav('profile'); }} style={{
@@ -1089,15 +1110,17 @@ function MobileTabBar({ active, onNav, onMenu, counts }) {
               marginTop: 0,
             }}>
               <Icon name={it.icon} size={21} color={color} strokeWidth={isActive ? 2.4 : 2} />
+            </div>
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4, whiteSpace: 'nowrap', minHeight: 16 }}>
+              {it.label}
               {it.badge > 0 && (
                 <span style={{
-                  position: 'absolute', top: -4, right: -8, minWidth: 16, height: 16, padding: '0 4px',
-                  borderRadius: 9999, background: '#E53E3E', color: '#fff', fontSize: 9, fontWeight: 700,
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff',
+                  minWidth: 16, height: 16, padding: '0 4px',
+                  borderRadius: 9999, background: '#E53E3E', color: '#fff', fontSize: 9, fontWeight: 800,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 }}>{it.badge}</span>
               )}
-            </div>
-            <span style={{ whiteSpace: 'nowrap' }}>{it.label}</span>
+            </span>
           </button>
         );
       })}
@@ -1228,7 +1251,7 @@ function PageHeader({ title, subtitle, actions, children }) {
   );
 }
 
-Object.assign(window, { AppHeader, SideNav, MobileDrawer, MobileTabBar, MenuPage, PageHeader });
+Object.assign(window, { AppHeader, HeaderIconButton, SideNav, MobileDrawer, MobileTabBar, MenuPage, PageHeader });
 
 
 // ---- app/login.jsx ----
@@ -1385,7 +1408,7 @@ function HomePage({ user, actions, onOpenResident, onOpenAction, onNav }) {
   const isPhone = v.isMobile;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: isPhone ? 28 : 32 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: isPhone ? 34 : 42 }}>
       {/* Greeting + facility summary */}
       <div style={{
         display: 'grid', gridTemplateColumns: '1fr', gap: 14,
@@ -1450,7 +1473,7 @@ function HomePage({ user, actions, onOpenResident, onOpenAction, onNav }) {
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) minmax(280px, 0.75fr)', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) minmax(280px, 0.75fr)', gap: isPhone ? 18 : 24 }}>
         <div>
           <SectionHeader title="Unit Risk Heatmap" subtitle="Tap a unit to narrow the resident directory." />
           <UnitRiskHeatmap actions={actions} onSelectUnit={unit => { emitToast(`Opening residents for ${unit}.`, 'info'); onNav('residents'); }} />
@@ -1557,7 +1580,7 @@ function BriefBullet({ text, tone }) {
 
 function SectionHeader({ title, subtitle, right }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
       <div>
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em' }}>{title}</h2>
         {subtitle && <div style={{ fontSize: 13, color: '#6A7282', marginTop: 2 }}>{subtitle}</div>}
@@ -2238,10 +2261,10 @@ Object.assign(window, {
 
 const ACTION_STATUS_TONES = {
   'No Action': 'critical',
-  Assigned: 'pending',
-  'In Progress': 'info',
+  Assigned: 'assigned',
+  'In Progress': 'inProgress',
   Overdue: 'critical',
-  Completed: 'signed',
+  Completed: 'completed',
   Escalated: 'high',
   Reviewed: 'stable',
   'Monitoring Continued': 'watch',
@@ -2387,7 +2410,7 @@ function ActionStatusBadge({ status }) {
 
 function DomainChip({ domainId, label }) {
   const domain = domainById(domainId);
-  return <Chip tone="todo">{label || domain.short}</Chip>;
+  return <Chip tone="domain" style={{ border: '1px solid #D8C7F2', fontWeight: 800 }}>{label || domain.short}</Chip>;
 }
 
 function OperationalResidentCard({ r, actions, onClick, focusDomain }) {
@@ -2442,7 +2465,7 @@ function UnitRiskHeatmap({ actions, onSelectUnit }) {
         const high = residents.filter(r => ['critical','high'].includes(r.risk)).length;
         const overdue = residents.filter(r => residentActionStatus(r, actions) === 'Overdue').length;
         const level = high > 1 || overdue ? 'High' : high ? 'Moderate' : 'Stable';
-        const color = level === 'High' ? '#E53E3E' : level === 'Moderate' ? '#E9C05F' : '#29BB89';
+        const color = level === 'High' ? RISK.high.dot : level === 'Moderate' ? '#E9C05F' : '#29BB89';
         return (
           <button key={unit} onClick={() => onSelectUnit(unit)} style={{
             minWidth: 0, border: `1px solid ${color}`, background: '#fff', borderRadius: 10,
@@ -2481,7 +2504,7 @@ function OperationalCognitionPanel({ resident, actions, compact }) {
           <div style={{ fontSize: 14, fontWeight: 900, color: '#1C192E' }}>Operational Cognition Layer</div>
           <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px', marginTop: 2 }}>{steps[step]}</div>
         </div>
-        <Chip tone="info" dot>Live</Chip>
+        <Chip tone="online" dot>Live</Chip>
       </div>
       {target && (
         <div style={{ padding: 10, background: '#FAFAFC', borderRadius: 8, border: '1px solid #EEEEEE' }}>
@@ -2575,7 +2598,7 @@ function SuggestedActionPanel({ r, actions, onAssign, onOpenAction }) {
       <div style={{ padding: 12, border: '1px solid #E5E7EB', borderRadius: 10, background: '#FAFAFC', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <DomainChip domainId={suggestion.domain} />
-          <Chip tone={suggestion.priority === 'High' ? 'critical' : 'watch'}>{suggestion.priority}</Chip>
+          <Chip tone={suggestion.priority === 'High' ? 'high' : 'watch'}>{suggestion.priority}</Chip>
           <Chip tone="todo">{suggestion.due}</Chip>
         </div>
         <div style={{ fontSize: 14, fontWeight: 900, color: '#1C192E' }}>{suggestion.type}</div>
@@ -3374,13 +3397,13 @@ function ResidentProfile({ residentId, actions, onBack, onOpenChat, onOpenIssue,
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center', minWidth: isPhone ? 96 : 120 }}>
-              <Button size="sm" variant="lavender" icon="calendar" style={{ width: '100%' }} onClick={() => setShowSchedule(true)}>Schedule</Button>
-              <Button size="sm" variant="danger" icon="alertTriangle" style={{ width: '100%' }} onClick={() => setShowEscalate(true)}>Escalate</Button>
+              <Button size="sm" variant="secondary" icon="calendar" style={{ width: '100%' }} onClick={() => setShowSchedule(true)}>Schedule</Button>
+              <Button size="sm" variant="coral" icon="alertTriangle" style={{ width: '100%' }} onClick={() => setShowEscalate(true)}>Escalate</Button>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr 1fr' : 'repeat(3, minmax(0, 1fr))', gap: 8, width: '100%' }}>
-            <ProfileDetailTile icon="mapPin" label="Location" value={`Rm ${r.room} · ${r.unit}`} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, width: '100%' }}>
+            <ProfileDetailTile icon="mapPin" label="Location" value={`Rm ${r.room} · ${r.unit}`} wide />
             <ProfileDetailTile icon="shield" label="Code Status" value={r.code} />
             <ProfileDetailTile icon="calendar" label="Admitted" value={r.admitted} />
             <ProfileDetailTile icon="activity" label="Primary Dx" value={r.dx} wide />
@@ -3559,8 +3582,8 @@ function RiskScoreCard({ score, level, trend }) {
 }
 
 function RiskTrendChart({ score, level }) {
-  const lineColor = '#E53E3E';
-  const softRed = 'rgba(229,62,62,0.12)';
+  const lineColor = '#B91C1C';
+  const softRed = 'rgba(229,62,62,0.14)';
   const gradId = `risk-trend-red-${level || 'resident'}`;
   // Generate 14 data points trending up to current
   const points = useMemo(() => {
@@ -3583,22 +3606,28 @@ function RiskTrendChart({ score, level }) {
   }).join(' ');
   const areaPath = path + ` L ${W - P},${H - P} L ${P},${H - P} Z`;
   return (
-    <div>
+    <div style={{
+      padding: 10,
+      border: '1px solid rgba(229,62,62,0.2)',
+      borderRadius: 10,
+      background: '#fff',
+    }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: '#99A1AF', letterSpacing: '0.08em' }}>14-DAY TREND</div>
         <div style={{ fontSize: 11, color: '#6A7282' }}>Score · driven by vitals, labs, ADL change, med adherence</div>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block', background: 'linear-gradient(180deg, rgba(253,236,236,0.72) 0%, rgba(255,255,255,0) 100%)', borderRadius: 8 }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#E53E3E" stopOpacity="0.28" />
+            <stop offset="0%" stopColor="#E53E3E" stopOpacity="0.56" />
+            <stop offset="54%" stopColor="#E53E3E" stopOpacity="0.2" />
             <stop offset="100%" stopColor="#E53E3E" stopOpacity="0" />
           </linearGradient>
         </defs>
         <line x1={P} y1={P + (1 - 0.6) * (H - 2 * P)} x2={W - P} y2={P + (1 - 0.6) * (H - 2 * P)} stroke={softRed} strokeDasharray="3 3" />
         <line x1={P} y1={P + (1 - 0.8) * (H - 2 * P)} x2={W - P} y2={P + (1 - 0.8) * (H - 2 * P)} stroke="#FCA5A5" strokeDasharray="3 3" />
         <path d={areaPath} fill={`url(#${gradId})`} />
-        <path d={path} fill="none" stroke={lineColor} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={path} fill="none" stroke={lineColor} strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round" />
         {points.map((p, i) => {
           const x = P + (i / (points.length - 1)) * (W - P * 2);
           const y = P + (1 - (p - min) / (max - min)) * (H - P * 2);
@@ -5100,7 +5129,7 @@ function ActionsPage({ actions, onOpenAction, onOpenResident, onUpdateActionStat
 }
 
 function ActionMetric({ label, value, tone }) {
-  const c = tone === 'critical' ? '#E53E3E' : tone === 'high' ? '#FF6E6C' : '#E9C05F';
+  const c = tone === 'critical' ? '#E53E3E' : tone === 'high' ? RISK.high.dot : '#E9C05F';
   return (
     <div style={{ border: '1px solid #EEEEEE', borderRadius: 10, padding: 12, background: '#fff' }}>
       <div style={{ fontSize: 24, fontWeight: 900, color: c, lineHeight: 1 }}>{value}</div>
@@ -5111,40 +5140,88 @@ function ActionMetric({ label, value, tone }) {
 
 function OperationalActionCard({ action, onOpen, onOpenResident, onUpdateActionStatus }) {
   const r = RESIDENTS.find(x => x.id === action.residentId);
+  const [confirmStatus, setConfirmStatus] = useState(null);
+  const [animatingStatus, setAnimatingStatus] = useState(null);
+  const isCompleting = confirmStatus === 'Completed';
+
+  function confirmStatusChange() {
+    const nextStatus = confirmStatus;
+    setConfirmStatus(null);
+    setAnimatingStatus(nextStatus);
+    setTimeout(() => onUpdateActionStatus(action.id, nextStatus), 180);
+    setTimeout(() => setAnimatingStatus(null), 620);
+  }
+
   return (
-    <Card hoverable onClick={onOpen} style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-        {r && <Avatar initials={r.initials} seed={r.id} size={38} isResident />}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <div style={{ fontSize: 14, fontWeight: 900, color: '#1C192E' }}>{r ? r.name : 'Resident'}</div>
-            {r && <button onClick={e => { e.stopPropagation(); onOpenResident(); }} style={{ border: 0, background: 'transparent', color: '#845EC2', font: '800 11px Inter', cursor: 'pointer', padding: 0 }}>Open resident</button>}
+    <>
+      <Card hoverable onClick={onOpen} style={{
+        padding: 14,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        transform: animatingStatus ? 'translateY(-2px) scale(1.01)' : 'translateY(0) scale(1)',
+        border: animatingStatus === 'Completed' ? '1px solid #29BB89' : animatingStatus ? '1px solid #0081CF' : '1px solid #E5E7EB',
+        boxShadow: animatingStatus ? '0 12px 24px -14px rgba(0,129,207,0.45)' : undefined,
+        transition: 'transform 220ms ease-out, border-color 220ms ease-out, box-shadow 220ms ease-out',
+      }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          {r && <Avatar initials={r.initials} seed={r.id} size={38} isResident />}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 14, fontWeight: 900, color: '#1C192E' }}>{r ? r.name : 'Resident'}</div>
+              {r && <button onClick={e => { e.stopPropagation(); onOpenResident(); }} style={{ border: 0, background: 'transparent', color: '#845EC2', font: '800 11px Inter', cursor: 'pointer', padding: 0 }}>Open resident</button>}
+            </div>
+            <div style={{ fontSize: 12, color: '#6A7282', marginTop: 2 }}>{r ? `Room ${r.room} · ${r.unit}` : 'Location pending'}</div>
           </div>
-          <div style={{ fontSize: 12, color: '#6A7282', marginTop: 2 }}>{r ? `Room ${r.room} · ${r.unit}` : 'Location pending'}</div>
+          <ActionStatusBadge status={action.status} />
         </div>
-        <ActionStatusBadge status={action.status} />
-      </div>
-      <div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#1C192E' }}>{action.type}</div>
-        <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px', marginTop: 3 }}>{action.reason}</div>
-      </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        <DomainChip domainId={action.domain} />
-        <Chip tone={action.priority === 'High' ? 'critical' : 'watch'}>{action.priority}</Chip>
-        <Chip tone="todo">{action.due}</Chip>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderTop: '1px solid #EEEEEE', paddingTop: 10 }}>
-        <div style={{ fontSize: 12, color: '#1C192E', fontWeight: 800 }}>{action.owner} · {action.ownerRole}</div>
-        <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 6 }}>
-          {action.status !== 'In Progress' && action.status !== 'Completed' && (
-            <Button size="sm" variant="secondary" onClick={() => onUpdateActionStatus(action.id, 'In Progress')}>Start</Button>
-          )}
-          {action.status !== 'Completed' && (
-            <Button size="sm" variant="primary" onClick={() => onUpdateActionStatus(action.id, 'Completed')}>Complete</Button>
-          )}
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: '#1C192E' }}>{action.type}</div>
+          <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px', marginTop: 3 }}>{action.reason}</div>
         </div>
-      </div>
-    </Card>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <DomainChip domainId={action.domain} />
+          <Chip tone={action.priority === 'High' ? 'high' : 'watch'}>{action.priority}</Chip>
+          <Chip tone="todo">{action.due}</Chip>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderTop: '1px solid #EEEEEE', paddingTop: 10 }}>
+          <div style={{ fontSize: 12, color: '#1C192E', fontWeight: 800 }}>{action.owner} · {action.ownerRole}</div>
+          <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 6 }}>
+            {action.status !== 'In Progress' && action.status !== 'Completed' && (
+              <Button size="sm" variant="secondary" onClick={() => setConfirmStatus('In Progress')}>Start</Button>
+            )}
+            {action.status !== 'Completed' && (
+              <Button size="sm" variant="primary" onClick={() => setConfirmStatus('Completed')}>Complete</Button>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      {confirmStatus && (
+        <ModalShell
+          title={isCompleting ? 'Mark Action Complete?' : 'Start Action?'}
+          subtitle={isCompleting ? 'Confirm this follow-through is ready to be marked complete.' : 'Confirm you want to move this action into active work.'}
+          onClose={() => setConfirmStatus(null)}
+          width={440}
+          footer={[
+            <Button key="cancel" variant="secondary" onClick={() => setConfirmStatus(null)}>Cancel</Button>,
+            <Button key="confirm" variant={isCompleting ? 'primary' : 'secondary'} icon={isCompleting ? 'check' : 'activity'} onClick={confirmStatusChange}>
+              {isCompleting ? 'Mark Complete' : 'Start Action'}
+            </Button>,
+          ]}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 14, fontWeight: 900, color: '#1C192E' }}>{action.type}</div>
+            <div style={{ fontSize: 13, color: '#6A7282', lineHeight: '19px' }}>
+              {r ? `${r.name} · Room ${r.room}` : 'Resident'} · {action.owner}
+            </div>
+            <div style={{ padding: 12, borderRadius: 9, background: '#FAFAFC', border: '1px solid #EEEEEE', fontSize: 13, color: '#1C192E', lineHeight: '19px' }}>
+              {action.reason}
+            </div>
+          </div>
+        </ModalShell>
+      )}
+    </>
   );
 }
 
@@ -5172,7 +5249,7 @@ function ActionDetailPage({ actionId, actions, onBack, onOpenResident, onUpdateA
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <DomainChip domainId={action.domain} />
-          <Chip tone={action.priority === 'High' ? 'critical' : 'watch'}>{action.priority}</Chip>
+          <Chip tone={action.priority === 'High' ? 'high' : 'watch'}>{action.priority}</Chip>
           <Chip tone="todo">{action.due}</Chip>
         </div>
         <div style={{ fontSize: 14, color: '#1C192E', lineHeight: '20px' }}>{action.reason}</div>
@@ -5637,6 +5714,8 @@ const HUDDLE_MESSAGE_THREADS = [
   },
 ];
 
+const ONLINE_USER_IDS = new Set(['u2', 'u3', 'u4', 'u8', 'u9', 'u11', 'u14', 'u18']);
+
 function messageUnreadCount() {
   return [...RECENT_THREADS_SEED, ...HUDDLE_MESSAGE_THREADS].reduce((n, t) => n + (t.unread || 0), 0);
 }
@@ -5680,9 +5759,9 @@ function MessagesPage({ user, onOpenThread, onOpenChat, taggedResidentId }) {
       || t.residents.some(r => r.name.toLowerCase().includes(lowerQ))
       || t.users.some(u => u.name.toLowerCase().includes(lowerQ))
   );
-  const filteredUsers = allUsers.filter(u =>
-    !lowerQ || u.name.toLowerCase().includes(lowerQ) || u.role.toLowerCase().includes(lowerQ)
-  );
+  const filteredUsers = allUsers
+    .filter(u => !lowerQ || u.name.toLowerCase().includes(lowerQ) || u.role.toLowerCase().includes(lowerQ))
+    .sort((a, b) => Number(ONLINE_USER_IDS.has(b.id)) - Number(ONLINE_USER_IDS.has(a.id)) || a.name.localeCompare(b.name));
 
   function pickUser(u) {
     const r = taggedResident || RESIDENTS.find(x => x.risk === 'critical') || RESIDENTS[0];
@@ -5778,20 +5857,27 @@ function MessagesPage({ user, onOpenThread, onOpenChat, taggedResidentId }) {
         ))}
         {tab === 'huddles' && filteredHuddles.length === 0 && <EmptyMessages text="No huddle threads match." />}
 
-        {tab === 'new' && filteredUsers.map(u => (
-          <button key={u.id} onClick={() => pickUser(u)} style={{
-            width: '100%', display: 'flex', gap: 12, alignItems: 'center',
-            padding: '12px 16px', border: 0, background: '#fff',
-            borderBottom: '1px solid #F4F4F5', cursor: 'pointer', textAlign: 'left',
-          }}>
-            <Avatar initials={u.initials} seed={u.id} size={34} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 900, color: '#1C192E' }}>{u.name}</div>
-              <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2 }}>{u.role}</div>
-            </div>
-            <Icon name="chevronRight" size={14} color="#99A1AF" />
-          </button>
-        ))}
+        {tab === 'new' && filteredUsers.map(u => {
+          const online = ONLINE_USER_IDS.has(u.id);
+          return (
+            <button key={u.id} onClick={() => pickUser(u)} style={{
+              width: '100%', display: 'flex', gap: 12, alignItems: 'center',
+              padding: '12px 16px', border: 0, background: online ? '#FBFFFD' : '#fff',
+              borderBottom: '1px solid #F4F4F5', cursor: 'pointer', textAlign: 'left',
+            }}>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <Avatar initials={u.initials} seed={u.id} size={34} />
+                {online && <span style={{ position: 'absolute', right: -1, bottom: -1, width: 10, height: 10, borderRadius: 9999, background: '#29BB89', border: '2px solid #fff' }} />}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 900, color: '#1C192E' }}>{u.name}</div>
+                <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2 }}>{u.role}</div>
+              </div>
+              <Chip tone={online ? 'online' : 'todo'} dot={online}>{online ? 'Online' : 'Offline'}</Chip>
+              <Icon name="chevronRight" size={14} color="#99A1AF" />
+            </button>
+          );
+        })}
         {tab === 'new' && filteredUsers.length === 0 && <EmptyMessages text="No team members match." />}
       </div>
 
@@ -5871,6 +5957,14 @@ function MessageThreadPage({ threadId, onBack, onOpenChat }) {
   const resident = direct ? direct.resident : huddle.residents[0];
   const participants = isHuddle ? huddle.users : [user];
   const [draft, setDraft] = useState('');
+  const [artifactMenuOpen, setArtifactMenuOpen] = useState(false);
+  const [artifactView, setArtifactView] = useState(null);
+  const conversationKind = isHuddle ? 'Huddle' : seed.id === 't5' ? 'Video Call' : 'Voice Call';
+  const artifactTitle = artifactView === 'summary'
+    ? `${conversationKind} Summary`
+    : artifactView === 'transcription'
+      ? `${conversationKind} Transcription`
+      : `${conversationKind} Insight`;
   const [messages, setMessages] = useState(isHuddle ? [
     { id: 'm1', from: 'them', user: participants[1]?.name || 'Team', body: huddle.preview, time: seed.time },
     { id: 'm2', from: 'me', user: 'Sarah Chen', body: 'Please keep the open action owner and follow-up time visible in this thread.', time: 'now' },
@@ -5888,7 +5982,7 @@ function MessageThreadPage({ threadId, onBack, onOpenChat }) {
   }
 
   return (
-    <div style={{ height: 'calc(100vh - 86px)', minHeight: 620, display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden' }}>
+    <div style={{ height: 'calc(100vh - 176px)', minHeight: 0, display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden' }}>
       <div style={{ padding: '10px 12px', borderBottom: '1px solid #EEEEEE', display: 'flex', alignItems: 'center', gap: 10 }}>
         <IconButton icon="chevronLeft" title="Back to Messages" onClick={onBack} />
         {isHuddle ? (
@@ -5903,8 +5997,39 @@ function MessageThreadPage({ threadId, onBack, onOpenChat }) {
           <Avatar initials={user.initials} seed={user.id} size={38} />
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 900, color: '#1C192E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {isHuddle ? huddle.title : user.name}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 900, color: '#1C192E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {isHuddle ? huddle.title : user.name}
+            </div>
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <button title="Conversation artifacts" onClick={() => setArtifactMenuOpen(o => !o)} style={{
+                width: 28, height: 28, borderRadius: 9999, border: '1px solid #E5E7EB', background: artifactMenuOpen ? '#F5F2FD' : '#fff',
+                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Icon name="moreVert" size={15} color={artifactMenuOpen ? '#67568C' : '#6A7282'} />
+              </button>
+              {artifactMenuOpen && (
+                <div style={{
+                  position: 'absolute', top: 32, right: 0, zIndex: 20, width: 190,
+                  background: '#fff', border: '1px solid #E5E7EB', borderRadius: 8,
+                  boxShadow: '0 12px 22px -12px rgba(0,0,0,0.28)', padding: 5,
+                }}>
+                  {[
+                    ['summary', 'View summary', 'fileText'],
+                    ['transcription', 'View transcription', 'message'],
+                    ['insight', 'View insight', 'sparkles'],
+                  ].map(([id, label, icon]) => (
+                    <button key={id} onClick={() => { setArtifactMenuOpen(false); setArtifactView(id); }} style={{
+                      width: '100%', border: 0, background: 'transparent', borderRadius: 6, padding: '9px 10px',
+                      display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', font: '800 12px Inter', color: '#1C192E', textAlign: 'left',
+                    }}>
+                      <Icon name={icon} size={14} color="#67568C" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {isHuddle ? `${participants.length} participants - ${huddle.residents.map(r => r.name).join(', ')}` : `${user.role} - re: ${resident.name}`}
@@ -5946,7 +6071,7 @@ function MessageThreadPage({ threadId, onBack, onOpenChat }) {
         ))}
       </div>
 
-      <div style={{ padding: 10, borderTop: '1px solid #EEEEEE', display: 'flex', gap: 8, alignItems: 'center', background: '#fff' }}>
+      <div style={{ padding: 10, borderTop: '1px solid #EEEEEE', display: 'flex', gap: 8, alignItems: 'center', background: '#fff', flexShrink: 0, position: 'sticky', bottom: 0, zIndex: 3, boxShadow: '0 -10px 18px -18px rgba(0,0,0,0.45)' }}>
         <input value={draft} onInput={e => setDraft(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && send()}
           placeholder={isHuddle ? 'Message the huddle...' : `Reply to ${user.short || user.name.split(' ')[0]}...`}
@@ -5954,6 +6079,55 @@ function MessageThreadPage({ threadId, onBack, onOpenChat }) {
         <button onClick={send} style={{ width: 38, height: 38, borderRadius: 9999, border: 0, background: '#845EC2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <Icon name="send" size={15} color="#fff" />
         </button>
+      </div>
+
+      {artifactView && (
+        <ModalShell title={artifactTitle} subtitle={`${isHuddle ? huddle.title : user.name} - completed ${conversationKind.toLowerCase()}`} onClose={() => setArtifactView(null)} width={560}>
+          <ConversationArtifactContent kind={artifactView} isHuddle={isHuddle} huddle={huddle} user={user} resident={resident} messages={messages} />
+        </ModalShell>
+      )}
+    </div>
+  );
+}
+
+function ConversationArtifactContent({ kind, isHuddle, huddle, user, resident, messages }) {
+  const speaker = isHuddle ? huddle.title : user.name;
+  if (kind === 'transcription') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {messages.map(m => (
+          <div key={m.id} style={{ padding: 12, borderRadius: 9, border: '1px solid #EEEEEE', background: '#FAFAFC' }}>
+            <div style={{ fontSize: 11, fontWeight: 900, color: '#6A7282' }}>{m.user || (m.from === 'me' ? 'Sarah Chen' : speaker)} · {m.time}</div>
+            <div style={{ fontSize: 13, color: '#1C192E', lineHeight: '19px', marginTop: 5 }}>{m.body}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (kind === 'insight') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {[
+          `${resident.name} remains the primary resident context for this conversation.`,
+          isHuddle ? 'Multiple disciplines participated; keep the action owner and follow-up time explicit.' : `${user.short || user.role} should confirm the next documented follow-up.`,
+          'Suggested continuity check: verify the outcome is reflected in Actions before shift handoff.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 8, fontSize: 13, color: '#1C192E', lineHeight: '19px' }}>
+            <span style={{ width: 6, height: 6, borderRadius: 9999, background: '#845EC2', marginTop: 7, flexShrink: 0 }} />
+            <span>{item}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ padding: 12, borderRadius: 9, background: '#F5F2FD', border: '1px solid #D8C7F2', fontSize: 13, lineHeight: '19px', color: '#1C192E' }}>
+        Conversation completed with resident context preserved for <b>{resident.name}</b>. Open items remain tied to follow-up ownership, timing, and handoff visibility.
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <Chip tone="domain">Resident: {resident.room}</Chip>
+        <Chip tone="online" dot>Completed</Chip>
       </div>
     </div>
   );
@@ -5963,7 +6137,7 @@ function MessagesFab() {
   return null;
 }
 
-Object.assign(window, { MessagesPage, MessageThreadPage, MessagesFab, RECENT_THREADS_SEED, HUDDLE_MESSAGE_THREADS, messageUnreadCount });
+Object.assign(window, { MessagesPage, MessageThreadPage, ConversationArtifactContent, MessagesFab, RECENT_THREADS_SEED, HUDDLE_MESSAGE_THREADS, messageUnreadCount });
 
 
 // ---- app/profile.jsx ----
@@ -5998,13 +6172,10 @@ function ProfilePage({ user, onLogout }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ minHeight: 'calc(100vh - 156px)', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <PageHeader
         title="Profile"
         subtitle="Account, security, and notification controls for your care-team workspace."
-        actions={[
-          <Button key="logout" variant="secondary" icon="logout" onClick={onLogout}>Sign Out</Button>,
-        ]}
       />
 
       <Card style={{ padding: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -6014,7 +6185,7 @@ function ProfilePage({ user, onLogout }) {
           <div style={{ fontSize: 13, color: '#6A7282', marginTop: 2 }}>{user.role}</div>
           <div style={{ fontSize: 12, color: '#99A1AF', marginTop: 4 }}>{FACILITY.name}</div>
         </div>
-        <Chip tone="signed" dot>Active</Chip>
+        <Chip tone="online" dot>Online</Chip>
       </Card>
 
       <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
@@ -6072,6 +6243,12 @@ function ProfilePage({ user, onLogout }) {
           <Button variant="primary" icon="check" onClick={saveTwoFactor}>Save 2FA</Button>
         </Card>
       </div>
+
+      <div style={{ flex: 1 }} />
+
+      <Button variant="dangerOutline" icon="logout" onClick={onLogout} style={{ alignSelf: isPhone ? 'stretch' : 'flex-start' }}>
+        Sign Out
+      </Button>
     </div>
   );
 }
@@ -6185,6 +6362,7 @@ function App() {
         onOpenResident={onOpenResident}
         counts={counts}
         mobile={isCompact}
+        active={activeNav}
       />
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
         <main class="ois-page" style={{ flex: 1, minWidth: 0, width: '100%', maxWidth: 1024 }}>
@@ -6251,6 +6429,7 @@ RiskBadge = defineReactComponent(RiskBadge);
 Checkbox = defineReactComponent(Checkbox);
 MoreActionMenu = defineReactComponent(MoreActionMenu);
 ToastHost = defineReactComponent(ToastHost);
+HeaderIconButton = defineReactComponent(HeaderIconButton);
 AppHeader = defineReactComponent(AppHeader);
 SideNav = defineReactComponent(SideNav);
 MobileDrawer = defineReactComponent(MobileDrawer);
@@ -6343,6 +6522,7 @@ HuddleThreadRow = defineReactComponent(HuddleThreadRow);
 UnreadBadge = defineReactComponent(UnreadBadge);
 EmptyMessages = defineReactComponent(EmptyMessages);
 MessageThreadPage = defineReactComponent(MessageThreadPage);
+ConversationArtifactContent = defineReactComponent(ConversationArtifactContent);
 MessagesFab = defineReactComponent(MessagesFab);
 ProfilePage = defineReactComponent(ProfilePage);
 SecurityField = defineReactComponent(SecurityField);
@@ -6363,6 +6543,7 @@ Object.assign(window, {
   Checkbox,
   MoreActionMenu,
   ToastHost,
+  HeaderIconButton,
   AppHeader,
   SideNav,
   MobileDrawer,
@@ -6455,6 +6636,7 @@ Object.assign(window, {
   UnreadBadge,
   EmptyMessages,
   MessageThreadPage,
+  ConversationArtifactContent,
   MessagesFab,
   ProfilePage,
   SecurityField,

@@ -2,10 +2,10 @@
 
 const ACTION_STATUS_TONES = {
   'No Action': 'critical',
-  Assigned: 'pending',
-  'In Progress': 'info',
+  Assigned: 'assigned',
+  'In Progress': 'inProgress',
   Overdue: 'critical',
-  Completed: 'signed',
+  Completed: 'completed',
   Escalated: 'high',
   Reviewed: 'stable',
   'Monitoring Continued': 'watch',
@@ -151,7 +151,7 @@ function ActionStatusBadge({ status }) {
 
 function DomainChip({ domainId, label }) {
   const domain = domainById(domainId);
-  return <Chip tone="todo">{label || domain.short}</Chip>;
+  return <Chip tone="domain" style={{ border: '1px solid #D8C7F2', fontWeight: 800 }}>{label || domain.short}</Chip>;
 }
 
 function OperationalResidentCard({ r, actions, onClick, focusDomain }) {
@@ -206,7 +206,7 @@ function UnitRiskHeatmap({ actions, onSelectUnit }) {
         const high = residents.filter(r => ['critical','high'].includes(r.risk)).length;
         const overdue = residents.filter(r => residentActionStatus(r, actions) === 'Overdue').length;
         const level = high > 1 || overdue ? 'High' : high ? 'Moderate' : 'Stable';
-        const color = level === 'High' ? '#E53E3E' : level === 'Moderate' ? '#E9C05F' : '#29BB89';
+        const color = level === 'High' ? RISK.high.dot : level === 'Moderate' ? '#E9C05F' : '#29BB89';
         return (
           <button key={unit} onClick={() => onSelectUnit(unit)} style={{
             minWidth: 0, border: `1px solid ${color}`, background: '#fff', borderRadius: 10,
@@ -245,7 +245,7 @@ function OperationalCognitionPanel({ resident, actions, compact }) {
           <div style={{ fontSize: 14, fontWeight: 900, color: '#1C192E' }}>Operational Cognition Layer</div>
           <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px', marginTop: 2 }}>{steps[step]}</div>
         </div>
-        <Chip tone="info" dot>Live</Chip>
+        <Chip tone="online" dot>Live</Chip>
       </div>
       {target && (
         <div style={{ padding: 10, background: '#FAFAFC', borderRadius: 8, border: '1px solid #EEEEEE' }}>
@@ -339,7 +339,7 @@ function SuggestedActionPanel({ r, actions, onAssign, onOpenAction }) {
       <div style={{ padding: 12, border: '1px solid #E5E7EB', borderRadius: 10, background: '#FAFAFC', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <DomainChip domainId={suggestion.domain} />
-          <Chip tone={suggestion.priority === 'High' ? 'critical' : 'watch'}>{suggestion.priority}</Chip>
+          <Chip tone={suggestion.priority === 'High' ? 'high' : 'watch'}>{suggestion.priority}</Chip>
           <Chip tone="todo">{suggestion.due}</Chip>
         </div>
         <div style={{ fontSize: 14, fontWeight: 900, color: '#1C192E' }}>{suggestion.type}</div>

@@ -22,7 +22,36 @@ const NOTIFICATIONS_SEED = [
   { id: 'n5', icon: 'users', tone: '#0081CF', title: 'Huddle scheduled', body: 'Skilled Nursing · 14:00 today', time: '4h ago' },
 ];
 
-function AppHeader({ user, onLogout, onNav, onOpenResident, counts, mobile }) {
+function HeaderIconButton({ icon, title, active, onClick, badge, badgeColor = '#845EC2' }) {
+  return (
+    <button title={title} onClick={onClick} style={{
+      width: 36,
+      height: 36,
+      borderRadius: 9999,
+      border: `1px solid ${active ? '#CDB8F0' : 'transparent'}`,
+      background: active ? '#F5F2FD' : 'transparent',
+      color: active ? '#67568C' : '#6A7282',
+      cursor: 'pointer',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+      transition: 'background 150ms, border-color 150ms, color 150ms',
+    }}>
+      <Icon name={icon} size={18} color={active ? '#67568C' : '#6A7282'} />
+      {active && <span style={{ position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: 9999, background: '#845EC2' }} />}
+      {badge > 0 && (
+        <span style={{
+          position: 'absolute', top: 2, right: 2, minWidth: 16, height: 16, padding: '0 4px',
+          borderRadius: 9999, background: badgeColor, color: '#fff', fontSize: 9, fontWeight: 700,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff', pointerEvents: 'none',
+        }}>{badge}</span>
+      )}
+    </button>
+  );
+}
+
+function AppHeader({ user, onLogout, onNav, onOpenResident, counts, mobile, active }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQ, setSearchQ] = useState('');
@@ -58,11 +87,11 @@ function AppHeader({ user, onLogout, onNav, onOpenResident, counts, mobile }) {
       position: 'sticky', top: 0, zIndex: 30, flexShrink: 0,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
-        <Brand height={mobile ? 22 : 26} />
+        <Brand height={mobile ? 28 : 34} />
       </div>
       <div style={{ flex: 1 }} />
 
-      <IconButton icon="search" title="Search" onClick={openSearch} />
+      <HeaderIconButton icon="search" title="Search" active={searchOpen} onClick={openSearch} />
       {searchOpen && (
         <>
           <div onClick={() => setSearchOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 45 }} />
@@ -103,14 +132,7 @@ function AppHeader({ user, onLogout, onNav, onOpenResident, counts, mobile }) {
       )}
 
       <div style={{ position: 'relative' }}>
-        <IconButton icon="bell" title="Notifications" onClick={() => { setSearchOpen(false); setNotifOpen(o => !o); }} />
-        {unread > 0 && (
-          <span style={{
-            position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, padding: '0 4px',
-            borderRadius: 9999, background: '#E53E3E', color: '#fff', fontSize: 9, fontWeight: 700,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff', pointerEvents: 'none',
-          }}>{unread}</span>
-        )}
+        <HeaderIconButton icon="bell" title="Notifications" active={notifOpen} badge={unread} badgeColor="#E53E3E" onClick={() => { setSearchOpen(false); setNotifOpen(o => !o); }} />
         {notifOpen && (
           <>
             <div onClick={() => setNotifOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
@@ -148,17 +170,10 @@ function AppHeader({ user, onLogout, onNav, onOpenResident, counts, mobile }) {
         )}
       </div>
 
-      <IconButton icon="calendar" title="Schedule" onClick={() => { setNotifOpen(false); setSearchOpen(false); onNav('schedule'); }} />
+      <HeaderIconButton icon="calendar" title="Schedule" active={active === 'schedule'} onClick={() => { setNotifOpen(false); setSearchOpen(false); onNav('schedule'); }} />
 
       <div style={{ position: 'relative' }}>
-        <IconButton icon="message" title="Messages" onClick={() => { setNotifOpen(false); setSearchOpen(false); onNav('messages'); }} />
-        {messageUnread > 0 && (
-          <span style={{
-            position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, padding: '0 4px',
-            borderRadius: 9999, background: '#845EC2', color: '#fff', fontSize: 9, fontWeight: 700,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff', pointerEvents: 'none',
-          }}>{messageUnread}</span>
-        )}
+        <HeaderIconButton icon="message" title="Messages" active={active === 'messages'} badge={messageUnread} onClick={() => { setNotifOpen(false); setSearchOpen(false); onNav('messages'); }} />
       </div>
 
       <button title="Profile" onClick={() => { setNotifOpen(false); setSearchOpen(false); onNav('profile'); }} style={{
@@ -293,15 +308,17 @@ function MobileTabBar({ active, onNav, onMenu, counts }) {
               marginTop: 0,
             }}>
               <Icon name={it.icon} size={21} color={color} strokeWidth={isActive ? 2.4 : 2} />
+            </div>
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4, whiteSpace: 'nowrap', minHeight: 16 }}>
+              {it.label}
               {it.badge > 0 && (
                 <span style={{
-                  position: 'absolute', top: -4, right: -8, minWidth: 16, height: 16, padding: '0 4px',
-                  borderRadius: 9999, background: '#E53E3E', color: '#fff', fontSize: 9, fontWeight: 700,
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff',
+                  minWidth: 16, height: 16, padding: '0 4px',
+                  borderRadius: 9999, background: '#E53E3E', color: '#fff', fontSize: 9, fontWeight: 800,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 }}>{it.badge}</span>
               )}
-            </div>
-            <span style={{ whiteSpace: 'nowrap' }}>{it.label}</span>
+            </span>
           </button>
         );
       })}
@@ -432,4 +449,4 @@ function PageHeader({ title, subtitle, actions, children }) {
   );
 }
 
-Object.assign(window, { AppHeader, SideNav, MobileDrawer, MobileTabBar, MenuPage, PageHeader });
+Object.assign(window, { AppHeader, HeaderIconButton, SideNav, MobileDrawer, MobileTabBar, MenuPage, PageHeader });

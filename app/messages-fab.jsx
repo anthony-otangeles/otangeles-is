@@ -41,6 +41,8 @@ const HUDDLE_MESSAGE_THREADS = [
   },
 ];
 
+const ONLINE_USER_IDS = new Set(['u2', 'u3', 'u4', 'u8', 'u9', 'u11', 'u14', 'u18']);
+
 function messageUnreadCount() {
   return [...RECENT_THREADS_SEED, ...HUDDLE_MESSAGE_THREADS].reduce((n, t) => n + (t.unread || 0), 0);
 }
@@ -84,9 +86,9 @@ function MessagesPage({ user, onOpenThread, onOpenChat, taggedResidentId }) {
       || t.residents.some(r => r.name.toLowerCase().includes(lowerQ))
       || t.users.some(u => u.name.toLowerCase().includes(lowerQ))
   );
-  const filteredUsers = allUsers.filter(u =>
-    !lowerQ || u.name.toLowerCase().includes(lowerQ) || u.role.toLowerCase().includes(lowerQ)
-  );
+  const filteredUsers = allUsers
+    .filter(u => !lowerQ || u.name.toLowerCase().includes(lowerQ) || u.role.toLowerCase().includes(lowerQ))
+    .sort((a, b) => Number(ONLINE_USER_IDS.has(b.id)) - Number(ONLINE_USER_IDS.has(a.id)) || a.name.localeCompare(b.name));
 
   function pickUser(u) {
     const r = taggedResident || RESIDENTS.find(x => x.risk === 'critical') || RESIDENTS[0];
@@ -182,20 +184,27 @@ function MessagesPage({ user, onOpenThread, onOpenChat, taggedResidentId }) {
         ))}
         {tab === 'huddles' && filteredHuddles.length === 0 && <EmptyMessages text="No huddle threads match." />}
 
-        {tab === 'new' && filteredUsers.map(u => (
-          <button key={u.id} onClick={() => pickUser(u)} style={{
-            width: '100%', display: 'flex', gap: 12, alignItems: 'center',
-            padding: '12px 16px', border: 0, background: '#fff',
-            borderBottom: '1px solid #F4F4F5', cursor: 'pointer', textAlign: 'left',
-          }}>
-            <Avatar initials={u.initials} seed={u.id} size={34} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 900, color: '#1C192E' }}>{u.name}</div>
-              <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2 }}>{u.role}</div>
-            </div>
-            <Icon name="chevronRight" size={14} color="#99A1AF" />
-          </button>
-        ))}
+        {tab === 'new' && filteredUsers.map(u => {
+          const online = ONLINE_USER_IDS.has(u.id);
+          return (
+            <button key={u.id} onClick={() => pickUser(u)} style={{
+              width: '100%', display: 'flex', gap: 12, alignItems: 'center',
+              padding: '12px 16px', border: 0, background: online ? '#FBFFFD' : '#fff',
+              borderBottom: '1px solid #F4F4F5', cursor: 'pointer', textAlign: 'left',
+            }}>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <Avatar initials={u.initials} seed={u.id} size={34} />
+                {online && <span style={{ position: 'absolute', right: -1, bottom: -1, width: 10, height: 10, borderRadius: 9999, background: '#29BB89', border: '2px solid #fff' }} />}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 900, color: '#1C192E' }}>{u.name}</div>
+                <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2 }}>{u.role}</div>
+              </div>
+              <Chip tone={online ? 'online' : 'todo'} dot={online}>{online ? 'Online' : 'Offline'}</Chip>
+              <Icon name="chevronRight" size={14} color="#99A1AF" />
+            </button>
+          );
+        })}
         {tab === 'new' && filteredUsers.length === 0 && <EmptyMessages text="No team members match." />}
       </div>
 
@@ -275,6 +284,14 @@ function MessageThreadPage({ threadId, onBack, onOpenChat }) {
   const resident = direct ? direct.resident : huddle.residents[0];
   const participants = isHuddle ? huddle.users : [user];
   const [draft, setDraft] = useState('');
+  const [artifactMenuOpen, setArtifactMenuOpen] = useState(false);
+  const [artifactView, setArtifactView] = useState(null);
+  const conversationKind = isHuddle ? 'Huddle' : seed.id === 't5' ? 'Video Call' : 'Voice Call';
+  const artifactTitle = artifactView === 'summary'
+    ? `${conversationKind} Summary`
+    : artifactView === 'transcription'
+      ? `${conversationKind} Transcription`
+      : `${conversationKind} Insight`;
   const [messages, setMessages] = useState(isHuddle ? [
     { id: 'm1', from: 'them', user: participants[1]?.name || 'Team', body: huddle.preview, time: seed.time },
     { id: 'm2', from: 'me', user: 'Sarah Chen', body: 'Please keep the open action owner and follow-up time visible in this thread.', time: 'now' },
@@ -292,7 +309,7 @@ function MessageThreadPage({ threadId, onBack, onOpenChat }) {
   }
 
   return (
-    <div style={{ height: 'calc(100vh - 86px)', minHeight: 620, display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden' }}>
+    <div style={{ height: 'calc(100vh - 176px)', minHeight: 0, display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden' }}>
       <div style={{ padding: '10px 12px', borderBottom: '1px solid #EEEEEE', display: 'flex', alignItems: 'center', gap: 10 }}>
         <IconButton icon="chevronLeft" title="Back to Messages" onClick={onBack} />
         {isHuddle ? (
@@ -307,8 +324,39 @@ function MessageThreadPage({ threadId, onBack, onOpenChat }) {
           <Avatar initials={user.initials} seed={user.id} size={38} />
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 900, color: '#1C192E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {isHuddle ? huddle.title : user.name}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 900, color: '#1C192E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {isHuddle ? huddle.title : user.name}
+            </div>
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <button title="Conversation artifacts" onClick={() => setArtifactMenuOpen(o => !o)} style={{
+                width: 28, height: 28, borderRadius: 9999, border: '1px solid #E5E7EB', background: artifactMenuOpen ? '#F5F2FD' : '#fff',
+                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Icon name="moreVert" size={15} color={artifactMenuOpen ? '#67568C' : '#6A7282'} />
+              </button>
+              {artifactMenuOpen && (
+                <div style={{
+                  position: 'absolute', top: 32, right: 0, zIndex: 20, width: 190,
+                  background: '#fff', border: '1px solid #E5E7EB', borderRadius: 8,
+                  boxShadow: '0 12px 22px -12px rgba(0,0,0,0.28)', padding: 5,
+                }}>
+                  {[
+                    ['summary', 'View summary', 'fileText'],
+                    ['transcription', 'View transcription', 'message'],
+                    ['insight', 'View insight', 'sparkles'],
+                  ].map(([id, label, icon]) => (
+                    <button key={id} onClick={() => { setArtifactMenuOpen(false); setArtifactView(id); }} style={{
+                      width: '100%', border: 0, background: 'transparent', borderRadius: 6, padding: '9px 10px',
+                      display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', font: '800 12px Inter', color: '#1C192E', textAlign: 'left',
+                    }}>
+                      <Icon name={icon} size={14} color="#67568C" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div style={{ fontSize: 11, color: '#6A7282', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {isHuddle ? `${participants.length} participants - ${huddle.residents.map(r => r.name).join(', ')}` : `${user.role} - re: ${resident.name}`}
@@ -350,7 +398,7 @@ function MessageThreadPage({ threadId, onBack, onOpenChat }) {
         ))}
       </div>
 
-      <div style={{ padding: 10, borderTop: '1px solid #EEEEEE', display: 'flex', gap: 8, alignItems: 'center', background: '#fff' }}>
+      <div style={{ padding: 10, borderTop: '1px solid #EEEEEE', display: 'flex', gap: 8, alignItems: 'center', background: '#fff', flexShrink: 0, position: 'sticky', bottom: 0, zIndex: 3, boxShadow: '0 -10px 18px -18px rgba(0,0,0,0.45)' }}>
         <input value={draft} onInput={e => setDraft(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && send()}
           placeholder={isHuddle ? 'Message the huddle...' : `Reply to ${user.short || user.name.split(' ')[0]}...`}
@@ -358,6 +406,55 @@ function MessageThreadPage({ threadId, onBack, onOpenChat }) {
         <button onClick={send} style={{ width: 38, height: 38, borderRadius: 9999, border: 0, background: '#845EC2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <Icon name="send" size={15} color="#fff" />
         </button>
+      </div>
+
+      {artifactView && (
+        <ModalShell title={artifactTitle} subtitle={`${isHuddle ? huddle.title : user.name} - completed ${conversationKind.toLowerCase()}`} onClose={() => setArtifactView(null)} width={560}>
+          <ConversationArtifactContent kind={artifactView} isHuddle={isHuddle} huddle={huddle} user={user} resident={resident} messages={messages} />
+        </ModalShell>
+      )}
+    </div>
+  );
+}
+
+function ConversationArtifactContent({ kind, isHuddle, huddle, user, resident, messages }) {
+  const speaker = isHuddle ? huddle.title : user.name;
+  if (kind === 'transcription') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {messages.map(m => (
+          <div key={m.id} style={{ padding: 12, borderRadius: 9, border: '1px solid #EEEEEE', background: '#FAFAFC' }}>
+            <div style={{ fontSize: 11, fontWeight: 900, color: '#6A7282' }}>{m.user || (m.from === 'me' ? 'Sarah Chen' : speaker)} · {m.time}</div>
+            <div style={{ fontSize: 13, color: '#1C192E', lineHeight: '19px', marginTop: 5 }}>{m.body}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (kind === 'insight') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {[
+          `${resident.name} remains the primary resident context for this conversation.`,
+          isHuddle ? 'Multiple disciplines participated; keep the action owner and follow-up time explicit.' : `${user.short || user.role} should confirm the next documented follow-up.`,
+          'Suggested continuity check: verify the outcome is reflected in Actions before shift handoff.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 8, fontSize: 13, color: '#1C192E', lineHeight: '19px' }}>
+            <span style={{ width: 6, height: 6, borderRadius: 9999, background: '#845EC2', marginTop: 7, flexShrink: 0 }} />
+            <span>{item}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ padding: 12, borderRadius: 9, background: '#F5F2FD', border: '1px solid #D8C7F2', fontSize: 13, lineHeight: '19px', color: '#1C192E' }}>
+        Conversation completed with resident context preserved for <b>{resident.name}</b>. Open items remain tied to follow-up ownership, timing, and handoff visibility.
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <Chip tone="domain">Resident: {resident.room}</Chip>
+        <Chip tone="online" dot>Completed</Chip>
       </div>
     </div>
   );
@@ -367,4 +464,4 @@ function MessagesFab() {
   return null;
 }
 
-Object.assign(window, { MessagesPage, MessageThreadPage, MessagesFab, RECENT_THREADS_SEED, HUDDLE_MESSAGE_THREADS, messageUnreadCount });
+Object.assign(window, { MessagesPage, MessageThreadPage, ConversationArtifactContent, MessagesFab, RECENT_THREADS_SEED, HUDDLE_MESSAGE_THREADS, messageUnreadCount });

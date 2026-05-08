@@ -72,7 +72,7 @@ function ActionsPage({ actions, onOpenAction, onOpenResident, onUpdateActionStat
 }
 
 function ActionMetric({ label, value, tone }) {
-  const c = tone === 'critical' ? '#E53E3E' : tone === 'high' ? '#FF6E6C' : '#E9C05F';
+  const c = tone === 'critical' ? '#E53E3E' : tone === 'high' ? RISK.high.dot : '#E9C05F';
   return (
     <div style={{ border: '1px solid #EEEEEE', borderRadius: 10, padding: 12, background: '#fff' }}>
       <div style={{ fontSize: 24, fontWeight: 900, color: c, lineHeight: 1 }}>{value}</div>
@@ -83,40 +83,88 @@ function ActionMetric({ label, value, tone }) {
 
 function OperationalActionCard({ action, onOpen, onOpenResident, onUpdateActionStatus }) {
   const r = RESIDENTS.find(x => x.id === action.residentId);
+  const [confirmStatus, setConfirmStatus] = useState(null);
+  const [animatingStatus, setAnimatingStatus] = useState(null);
+  const isCompleting = confirmStatus === 'Completed';
+
+  function confirmStatusChange() {
+    const nextStatus = confirmStatus;
+    setConfirmStatus(null);
+    setAnimatingStatus(nextStatus);
+    setTimeout(() => onUpdateActionStatus(action.id, nextStatus), 180);
+    setTimeout(() => setAnimatingStatus(null), 620);
+  }
+
   return (
-    <Card hoverable onClick={onOpen} style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-        {r && <Avatar initials={r.initials} seed={r.id} size={38} isResident />}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <div style={{ fontSize: 14, fontWeight: 900, color: '#1C192E' }}>{r ? r.name : 'Resident'}</div>
-            {r && <button onClick={e => { e.stopPropagation(); onOpenResident(); }} style={{ border: 0, background: 'transparent', color: '#845EC2', font: '800 11px Inter', cursor: 'pointer', padding: 0 }}>Open resident</button>}
+    <>
+      <Card hoverable onClick={onOpen} style={{
+        padding: 14,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        transform: animatingStatus ? 'translateY(-2px) scale(1.01)' : 'translateY(0) scale(1)',
+        border: animatingStatus === 'Completed' ? '1px solid #29BB89' : animatingStatus ? '1px solid #0081CF' : '1px solid #E5E7EB',
+        boxShadow: animatingStatus ? '0 12px 24px -14px rgba(0,129,207,0.45)' : undefined,
+        transition: 'transform 220ms ease-out, border-color 220ms ease-out, box-shadow 220ms ease-out',
+      }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          {r && <Avatar initials={r.initials} seed={r.id} size={38} isResident />}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 14, fontWeight: 900, color: '#1C192E' }}>{r ? r.name : 'Resident'}</div>
+              {r && <button onClick={e => { e.stopPropagation(); onOpenResident(); }} style={{ border: 0, background: 'transparent', color: '#845EC2', font: '800 11px Inter', cursor: 'pointer', padding: 0 }}>Open resident</button>}
+            </div>
+            <div style={{ fontSize: 12, color: '#6A7282', marginTop: 2 }}>{r ? `Room ${r.room} · ${r.unit}` : 'Location pending'}</div>
           </div>
-          <div style={{ fontSize: 12, color: '#6A7282', marginTop: 2 }}>{r ? `Room ${r.room} · ${r.unit}` : 'Location pending'}</div>
+          <ActionStatusBadge status={action.status} />
         </div>
-        <ActionStatusBadge status={action.status} />
-      </div>
-      <div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#1C192E' }}>{action.type}</div>
-        <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px', marginTop: 3 }}>{action.reason}</div>
-      </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        <DomainChip domainId={action.domain} />
-        <Chip tone={action.priority === 'High' ? 'critical' : 'watch'}>{action.priority}</Chip>
-        <Chip tone="todo">{action.due}</Chip>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderTop: '1px solid #EEEEEE', paddingTop: 10 }}>
-        <div style={{ fontSize: 12, color: '#1C192E', fontWeight: 800 }}>{action.owner} · {action.ownerRole}</div>
-        <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 6 }}>
-          {action.status !== 'In Progress' && action.status !== 'Completed' && (
-            <Button size="sm" variant="secondary" onClick={() => onUpdateActionStatus(action.id, 'In Progress')}>Start</Button>
-          )}
-          {action.status !== 'Completed' && (
-            <Button size="sm" variant="primary" onClick={() => onUpdateActionStatus(action.id, 'Completed')}>Complete</Button>
-          )}
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: '#1C192E' }}>{action.type}</div>
+          <div style={{ fontSize: 12, color: '#6A7282', lineHeight: '17px', marginTop: 3 }}>{action.reason}</div>
         </div>
-      </div>
-    </Card>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <DomainChip domainId={action.domain} />
+          <Chip tone={action.priority === 'High' ? 'high' : 'watch'}>{action.priority}</Chip>
+          <Chip tone="todo">{action.due}</Chip>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderTop: '1px solid #EEEEEE', paddingTop: 10 }}>
+          <div style={{ fontSize: 12, color: '#1C192E', fontWeight: 800 }}>{action.owner} · {action.ownerRole}</div>
+          <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 6 }}>
+            {action.status !== 'In Progress' && action.status !== 'Completed' && (
+              <Button size="sm" variant="secondary" onClick={() => setConfirmStatus('In Progress')}>Start</Button>
+            )}
+            {action.status !== 'Completed' && (
+              <Button size="sm" variant="primary" onClick={() => setConfirmStatus('Completed')}>Complete</Button>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      {confirmStatus && (
+        <ModalShell
+          title={isCompleting ? 'Mark Action Complete?' : 'Start Action?'}
+          subtitle={isCompleting ? 'Confirm this follow-through is ready to be marked complete.' : 'Confirm you want to move this action into active work.'}
+          onClose={() => setConfirmStatus(null)}
+          width={440}
+          footer={[
+            <Button key="cancel" variant="secondary" onClick={() => setConfirmStatus(null)}>Cancel</Button>,
+            <Button key="confirm" variant={isCompleting ? 'primary' : 'secondary'} icon={isCompleting ? 'check' : 'activity'} onClick={confirmStatusChange}>
+              {isCompleting ? 'Mark Complete' : 'Start Action'}
+            </Button>,
+          ]}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 14, fontWeight: 900, color: '#1C192E' }}>{action.type}</div>
+            <div style={{ fontSize: 13, color: '#6A7282', lineHeight: '19px' }}>
+              {r ? `${r.name} · Room ${r.room}` : 'Resident'} · {action.owner}
+            </div>
+            <div style={{ padding: 12, borderRadius: 9, background: '#FAFAFC', border: '1px solid #EEEEEE', fontSize: 13, color: '#1C192E', lineHeight: '19px' }}>
+              {action.reason}
+            </div>
+          </div>
+        </ModalShell>
+      )}
+    </>
   );
 }
 
@@ -144,7 +192,7 @@ function ActionDetailPage({ actionId, actions, onBack, onOpenResident, onUpdateA
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <DomainChip domainId={action.domain} />
-          <Chip tone={action.priority === 'High' ? 'critical' : 'watch'}>{action.priority}</Chip>
+          <Chip tone={action.priority === 'High' ? 'high' : 'watch'}>{action.priority}</Chip>
           <Chip tone="todo">{action.due}</Chip>
         </div>
         <div style={{ fontSize: 14, color: '#1C192E', lineHeight: '20px' }}>{action.reason}</div>

@@ -323,13 +323,13 @@ function ResidentProfile({ residentId, actions, onBack, onOpenChat, onOpenIssue,
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center', minWidth: isPhone ? 96 : 120 }}>
-              <Button size="sm" variant="lavender" icon="calendar" style={{ width: '100%' }} onClick={() => setShowSchedule(true)}>Schedule</Button>
-              <Button size="sm" variant="danger" icon="alertTriangle" style={{ width: '100%' }} onClick={() => setShowEscalate(true)}>Escalate</Button>
+              <Button size="sm" variant="secondary" icon="calendar" style={{ width: '100%' }} onClick={() => setShowSchedule(true)}>Schedule</Button>
+              <Button size="sm" variant="coral" icon="alertTriangle" style={{ width: '100%' }} onClick={() => setShowEscalate(true)}>Escalate</Button>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr 1fr' : 'repeat(3, minmax(0, 1fr))', gap: 8, width: '100%' }}>
-            <ProfileDetailTile icon="mapPin" label="Location" value={`Rm ${r.room} · ${r.unit}`} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, width: '100%' }}>
+            <ProfileDetailTile icon="mapPin" label="Location" value={`Rm ${r.room} · ${r.unit}`} wide />
             <ProfileDetailTile icon="shield" label="Code Status" value={r.code} />
             <ProfileDetailTile icon="calendar" label="Admitted" value={r.admitted} />
             <ProfileDetailTile icon="activity" label="Primary Dx" value={r.dx} wide />
@@ -508,8 +508,8 @@ function RiskScoreCard({ score, level, trend }) {
 }
 
 function RiskTrendChart({ score, level }) {
-  const lineColor = '#E53E3E';
-  const softRed = 'rgba(229,62,62,0.12)';
+  const lineColor = '#B91C1C';
+  const softRed = 'rgba(229,62,62,0.14)';
   const gradId = `risk-trend-red-${level || 'resident'}`;
   // Generate 14 data points trending up to current
   const points = useMemo(() => {
@@ -532,22 +532,28 @@ function RiskTrendChart({ score, level }) {
   }).join(' ');
   const areaPath = path + ` L ${W - P},${H - P} L ${P},${H - P} Z`;
   return (
-    <div>
+    <div style={{
+      padding: 10,
+      border: '1px solid rgba(229,62,62,0.2)',
+      borderRadius: 10,
+      background: '#fff',
+    }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: '#99A1AF', letterSpacing: '0.08em' }}>14-DAY TREND</div>
         <div style={{ fontSize: 11, color: '#6A7282' }}>Score · driven by vitals, labs, ADL change, med adherence</div>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block', background: 'linear-gradient(180deg, rgba(253,236,236,0.72) 0%, rgba(255,255,255,0) 100%)', borderRadius: 8 }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#E53E3E" stopOpacity="0.28" />
+            <stop offset="0%" stopColor="#E53E3E" stopOpacity="0.56" />
+            <stop offset="54%" stopColor="#E53E3E" stopOpacity="0.2" />
             <stop offset="100%" stopColor="#E53E3E" stopOpacity="0" />
           </linearGradient>
         </defs>
         <line x1={P} y1={P + (1 - 0.6) * (H - 2 * P)} x2={W - P} y2={P + (1 - 0.6) * (H - 2 * P)} stroke={softRed} strokeDasharray="3 3" />
         <line x1={P} y1={P + (1 - 0.8) * (H - 2 * P)} x2={W - P} y2={P + (1 - 0.8) * (H - 2 * P)} stroke="#FCA5A5" strokeDasharray="3 3" />
         <path d={areaPath} fill={`url(#${gradId})`} />
-        <path d={path} fill="none" stroke={lineColor} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={path} fill="none" stroke={lineColor} strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round" />
         {points.map((p, i) => {
           const x = P + (i / (points.length - 1)) * (W - P * 2);
           const y = P + (1 - (p - min) / (max - min)) * (H - P * 2);

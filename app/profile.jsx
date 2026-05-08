@@ -29,13 +29,10 @@ function ProfilePage({ user, onLogout }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ minHeight: 'calc(100vh - 156px)', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <PageHeader
         title="Profile"
         subtitle="Account, security, and notification controls for your care-team workspace."
-        actions={[
-          <Button key="logout" variant="secondary" icon="logout" onClick={onLogout}>Sign Out</Button>,
-        ]}
       />
 
       <Card style={{ padding: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -45,7 +42,7 @@ function ProfilePage({ user, onLogout }) {
           <div style={{ fontSize: 13, color: '#6A7282', marginTop: 2 }}>{user.role}</div>
           <div style={{ fontSize: 12, color: '#99A1AF', marginTop: 4 }}>{FACILITY.name}</div>
         </div>
-        <Chip tone="signed" dot>Active</Chip>
+        <Chip tone="online" dot>Online</Chip>
       </Card>
 
       <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
@@ -103,6 +100,12 @@ function ProfilePage({ user, onLogout }) {
           <Button variant="primary" icon="check" onClick={saveTwoFactor}>Save 2FA</Button>
         </Card>
       </div>
+
+      <div style={{ flex: 1 }} />
+
+      <Button variant="dangerOutline" icon="logout" onClick={onLogout} style={{ alignSelf: isPhone ? 'stretch' : 'flex-start' }}>
+        Sign Out
+      </Button>
     </div>
   );
 }

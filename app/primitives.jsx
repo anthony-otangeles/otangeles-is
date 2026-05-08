@@ -16,7 +16,7 @@ const C = {
 // Risk tones
 const RISK = {
   critical: { bg: '#FDECEC', fg: '#E53E3E', dot: '#E53E3E', label: 'Critical' },
-  high:     { bg: '#FFF3EF', fg: '#FF6E6C', dot: '#FF6E6C', label: 'High' },
+  high:     { bg: '#FFF7ED', fg: '#C2410C', dot: '#F97316', label: 'High' },
   watch:    { bg: '#FFF8E6', fg: '#B58420', dot: '#E9C05F', label: 'Watch' },
   stable:   { bg: '#E7F5EF', fg: '#29BB89', dot: '#29BB89', label: 'Stable' },
 };
@@ -114,11 +114,11 @@ function Avatar({ initials = 'JC', size = 36, seed, ring, isResident }) {
   return (
     <div style={{
       width: size, height: size, borderRadius: 9999, flexShrink: 0,
-      background: '#F4F4F5', position: 'relative', overflow: 'hidden',
+      background: '#E5E7EB', position: 'relative', overflow: 'hidden',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       boxShadow: ring ? `0 0 0 2px ${ring}` : 'none',
     }}>
-      <Icon name="user" size={size * 0.55} color="#99A1AF" />
+      <Icon name="user" size={size * 0.55} color="#6A7282" />
     </div>
   );
 }
@@ -132,6 +132,11 @@ function Chip({ tone = 'todo', children, dot, style }) {
     voided:  { bg: '#F4F4F5', fg: '#6A7282' },
     pending: { bg: '#F4F4F5', fg: '#52525B' },
     info:    { bg: '#F4F4F5', fg: '#52525B' },
+    assigned: { bg: '#F4F4F5', fg: '#52525B' },
+    inProgress: { bg: '#E6F2FB', fg: '#0F6FA6' },
+    completed: { bg: '#E7F5EF', fg: '#00795E' },
+    online: { bg: '#E7F5EF', fg: '#00795E' },
+    domain: { bg: '#F5F2FD', fg: '#67568C' },
     // Risk tones keep clinical signal — but desaturated.
     critical: { bg: '#FDECEC', fg: '#B91C1C' },
     high:     { bg: '#FFF3EF', fg: '#C2410C' },
@@ -166,6 +171,7 @@ function Button({ variant = 'primary', icon, rightIcon, children, onClick, style
     ghost: { background: hover ? '#F4F4F5' : 'transparent', color: '#1C192E', border: '1px solid transparent' },
     dark: { background: hover ? '#000' : '#1C192E', color: '#fff', border: '1px solid transparent' },
     danger: { background: hover ? '#DC2626' : '#fff', color: hover ? '#fff' : '#DC2626', border: hover ? '1px solid #DC2626' : '1px solid #FECACA' },
+    dangerOutline: { background: hover ? '#FDECEC' : '#fff', color: '#B91C1C', border: '1px solid #FCA5A5' },
     coral: { background: hover ? '#A11D1D' : '#B91C1C', color: '#fff', border: '1px solid transparent' },
     mint: { background: hover ? '#00B295' : '#00C9A7', color: '#fff', border: '1px solid transparent' },
     lavender: { background: hover ? '#67568C' : '#845EC2', color: '#fff', border: '1px solid transparent' },
